@@ -1,5 +1,10 @@
 export default async function handler(req, res) {
     try {
+        // Voeg CORS-headers toe
+        res.setHeader('Access-Control-Allow-Origin', '*');  // Sta verzoeken van alle domeinen toe
+        res.setHeader('Access-Control-Allow-Methods', 'GET'); // Sta alleen GET-verzoeken toe
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');  // Sta de Content-Type header toe
+
         // Haal de echte IP uit de headers
         const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
         const userIp = forwardedIp || "8.8.8.8"; // Fallback naar een bekend IP als het niet gevonden wordt
@@ -10,7 +15,7 @@ export default async function handler(req, res) {
 
         // Controleer of locatie-informatie beschikbaar is
         if (!locationData || locationData.status !== "success") {
-            return res.status(500).json({ error: "Kon geen locatie-informatie ophalen" });
+            return res.status(500).send("Kon geen locatie-informatie ophalen");
         }
 
         // Haal de tijdzone uit de locatie-data
@@ -27,10 +32,10 @@ export default async function handler(req, res) {
         };
         const localTime = date.toLocaleTimeString('nl-NL', options);
 
-        // Stuur alleen de tijd terug
-        res.status(200).json({ localTime: localTime });
+        // Stuur de tijd terug als platte tekst
+        res.status(200).send(localTime);
     } catch (error) {
         console.error("Error fetching IP data:", error);
-        res.status(500).json({ error: "Kon de tijd niet ophalen" });
+        res.status(500).send("Kon de tijd niet ophalen");
     }
 }
