@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Huidige Tijd</title>
+    <script>
+        function fetchTime() {
+            fetch('/api/time')  // Dit is het pad naar je serverless functie
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('time').textContent = data.time;
+                })
+                .catch(error => console.error('Error fetching time:', error));
+        }
+        setInterval(fetchTime, 1000);
+    </script>
+</head>
+<body>
+    <h1>Huidige Tijd:</h1>
+    <p id="time"></p>
+</body>
+</html>
