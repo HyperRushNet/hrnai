@@ -6,18 +6,20 @@
     <title>Huidige Tijd</title>
     <script>
         function fetchTime() {
-            fetch('/api/time')  // Dit is het pad naar je serverless functie
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('time').textContent = data.time;
+            fetch('/api/time')
+                .then(response => response.text()) // Verwacht een pure tekstresponse
+                .then(time => {
+                    document.getElementById('time').textContent = time;
                 })
                 .catch(error => console.error('Error fetching time:', error));
         }
-        setInterval(fetchTime, 1000);
+
+        fetchTime();
+        setInterval(fetchTime, 1000); // Update de tijd elke seconde
     </script>
 </head>
 <body>
     <h1>Huidige Tijd:</h1>
-    <p id="time"></p>
+    <p id="time">Laden...</p>
 </body>
 </html>
