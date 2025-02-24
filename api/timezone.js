@@ -21,19 +21,22 @@ export default async function handler(req, res) {
         // Haal de tijdzone uit de locatie-data
         const { timezone } = locationData;
 
-        // Haal de lokale tijd op in de juiste tijdzone
+        // Haal de huidige datum en tijd op in de juiste tijdzone
         const date = new Date();
         const options = { 
             timeZone: timezone, 
+            weekday: 'long', // Voeg de dag van de week toe
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
             hour: '2-digit', 
             minute: '2-digit', 
-            second: '2-digit', 
-            timeZoneName: 'short' 
+            second: '2-digit'
         };
-        const localTime = date.toLocaleTimeString('nl-NL', options);
+        const formattedDate = date.toLocaleString('nl-NL', options);
 
-        // Stuur de tijd terug als platte tekst
-        res.status(200).send(localTime);
+        // Stuur de datum, dag van de week en tijd terug als platte tekst
+        res.status(200).send(formattedDate);
     } catch (error) {
         console.error("Error fetching IP data:", error);
         res.status(500).send("Kon de tijd niet ophalen");
