@@ -5,12 +5,12 @@ export default async function handler(req, res) {
         const userIp = forwardedIp || "8.8.8.8"; // Fallback naar een bekend IP als het niet gevonden wordt
 
         // Haal de locatie en tijdzone-info op via ip-api.com
-        const locationResponse = await fetch(`http://ip-api.com/json/${userIp}?fields=timezone`);
+        const locationResponse = await fetch(`http://ip-api.com/json/${userIp}?fields=66846719`);
         const locationData = await locationResponse.json();
 
         // Controleer of locatie-informatie beschikbaar is
         if (!locationData || locationData.status !== "success") {
-            return res.status(500).send("Kon geen tijdzone ophalen");
+            return res.status(500).json({ error: "Kon geen locatie-informatie ophalen" });
         }
 
         // Haal de tijdzone uit de locatie-data
@@ -27,10 +27,15 @@ export default async function handler(req, res) {
         };
         const localTime = date.toLocaleTimeString('nl-NL', options);
 
-        // Geef alleen de tijd terug
-        res.status(200).send(localTime);
+        // Voeg de tijdzone en tijd toe aan de response
+        const result = {
+            ...locationData,
+            localTime: localTime
+        };
+
+        res.status(200).json(result);
     } catch (error) {
         console.error("Error fetching IP data:", error);
-        res.status(500).send("Kon de tijd niet ophalen");
+        res.status(500).json({ error: "Kon de gegevens niet ophalen" });
     }
 }
