@@ -2,9 +2,14 @@ export default async function handler(req, res) {
     try {
         // Haal locatiegegevens op via ipapi.co
         const response = await fetch('https://ipapi.co/json');
+
+        if (!response.ok) {
+            throw new Error(`ipapi.co API error: ${response.status}`);
+        }
+
         const data = await response.json();
 
-        // Bepaal de tijdzone van de gebruiker
+        // Controleer of de tijdzone aanwezig is
         const timeZone = data.timezone || 'Europe/Amsterdam'; // Default naar CET als er iets misgaat
 
         // Haal de huidige tijd in de juiste tijdzone op
@@ -27,6 +32,7 @@ export default async function handler(req, res) {
         res.status(200).send(timeString);
 
     } catch (error) {
+        console.error('Server error:', error); // Log de fout in de serverconsole
         res.status(500).send('Error fetching time');
     }
 }
