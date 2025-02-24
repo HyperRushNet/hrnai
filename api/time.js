@@ -1,21 +1,32 @@
-export default function handler(req, res) {
-    const date = new Date();
+export default async function handler(req, res) {
+    try {
+        // Haal locatiegegevens op via ipapi.co
+        const response = await fetch('https://ipapi.co/json');
+        const data = await response.json();
 
-    // Converteer naar CET (UTC+1) en houd rekening met zomertijd
-    const options = { 
-        timeZone: 'Europe/Amsterdam', // CET en CEST afhankelijk van de tijd van het jaar
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit', 
-        timeZoneName: 'short' 
-    };
+        // Bepaal de tijdzone van de gebruiker
+        const timeZone = data.timezone || 'Europe/Amsterdam'; // Default naar CET als er iets misgaat
 
-    const timeString = date.toLocaleTimeString('nl-NL', options);
+        // Haal de huidige tijd in de juiste tijdzone op
+        const date = new Date();
+        const options = { 
+            timeZone: timeZone, 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit', 
+            timeZoneName: 'short' 
+        };
+        const timeString = date.toLocaleTimeString('nl-NL', options);
 
-    // Voeg CORS headers toe
-    res.setHeader('Access-Control-Allow-Origin', '*'); 
-    res.setHeader('Access-Control-Allow-Methods', 'GET'); 
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type'); 
+        // Zet headers voor no-CORS
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    res.status(200).json({ time: timeString });
+        // Stuur alleen de tijd als pure tekst terug
+        res.status(200).send(timeString);
+
+    } catch (error) {
+        res.status(500).send('Error fetching time');
+    }
 }
