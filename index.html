@@ -3,23 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Huidige Tijd</title>
+    <title>Tijdzone API</title>
     <script>
-        function fetchTime() {
-            fetch('/api/time')
-                .then(response => response.text()) // Verwacht een pure tekstresponse
-                .then(time => {
-                    document.getElementById('time').textContent = time;
+        function fetchTimeZone() {
+            fetch('/api/timezone')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('country').textContent = data.country;
+                    document.getElementById('timezone').textContent = data.timezone;
                 })
-                .catch(error => console.error('Error fetching time:', error));
+                .catch(error => console.error('Error fetching timezone:', error));
         }
 
-        fetchTime();
-        setInterval(fetchTime, 10000000000000000000000); // Update de tijd elke seconde
+        fetchTimeZone();
     </script>
 </head>
 <body>
-    <h1>Huidige Tijd:</h1>
-    <p id="time">Laden...</p>
+    <h1>Jouw locatiegegevens:</h1>
+    <p><strong>Land:</strong> <span id="country">Laden...</span></p>
+    <p><strong>Tijdzone:</strong> <span id="timezone">Laden...</span></p>
 </body>
 </html>
