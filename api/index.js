@@ -40,17 +40,14 @@ export default async function handler(req, res) {
         };
         
         const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
-        const responseJson = {
-            weekday: formattedDate.find(part => part.type === 'weekday')?.value,
-            date: `${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}`,
-            time: `${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}`,
-            timezone: timezone
-        };
+        
+        // Format the output as a string
+        const formattedOutput = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value} Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value} Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
 
-        // Send the formatted date and time as JSON
-        res.status(200).json(responseJson);
+        // Send the formatted output as plain text
+        res.status(200).send(formattedOutput);
     } catch (error) {
         console.error("Error fetching IP data:", error);
-        res.status(500).json({ error: "Could not retrieve the time" });
+        res.status(500).send("Could not retrieve the time");
     }
 }
