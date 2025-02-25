@@ -1,41 +1,36 @@
 export default async function handler(req, res) {
     try {
         // Voeg CORS-headers toe
-        res.setHeader('Access-Control-Allow-Origin', '*');  // Sta verzoeken van alle domeinen toe
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST'); // Sta zowel GET- als POST-verzoeken toe
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');  // Sta de Content-Type header toe
+        res.setHeader('Access-Control-Allow-Origin', '*');  // Allow requests from any domain
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST'); // Allow both GET and POST requests
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');  // Allow Content-Type header
 
-        // OPTIONS-verzoek voor CORS-ondersteuning
+        // Handle preflight requests
         if (req.method === 'OPTIONS') {
             return res.status(200).end();
         }
 
-        // Alleen GET en POST toestaan
-        if (req.method !== 'GET' && req.method !== 'POST') {
-            return res.status(405).json({ error: "Method not allowed" });
-        }
-
-        // Haal de echte IP uit de headers
+        // Retrieve the actual IP from the headers
         const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
-        const userIp = forwardedIp || "8.8.8.8"; // Fallback naar een bekend IP als het niet gevonden wordt
+        const userIp = forwardedIp || "8.8.8.8"; // Fallback to a known IP if not found
 
-        // Haal de locatie-informatie op via ip-api.com
+        // Fetch location information via ip-api.com
         const locationResponse = await fetch(`http://ip-api.com/json/${userIp}?fields=66846719`);
         const locationData = await locationResponse.json();
 
-        // Controleer of locatie-informatie beschikbaar is
+        // Check if location information is available
         if (!locationData || locationData.status !== "success") {
-            return res.status(500).json({ error: "Kon geen locatie-informatie ophalen" });
+            return res.status(500).send("Could not retrieve location information");
         }
 
-        // Haal de tijdzone uit de locatie-data
+        // Extract the timezone from location data
         const { timezone } = locationData;
 
-        // Haal de huidige datum en tijd op in de juiste tijdzone
+        // Get the current date and time in the correct timezone
         const date = new Date();
         const options = { 
             timeZone: timezone, 
-            weekday: 'long', 
+            weekday: 'long', // Include the day of the week
             year: 'numeric', 
             month: 'long', 
             day: 'numeric',
@@ -43,17 +38,12 @@ export default async function handler(req, res) {
             minute: '2-digit', 
             second: '2-digit'
         };
-        const formattedDate = date.toLocaleString('nl-NL', options);
+        const formattedDate = date.toLocaleString('en-US', options);
 
-        // Stuur de JSON-response terug
-        res.status(200).json({
-            ip: userIp,
-            timezone,
-            datetime: formattedDate
-        });
-
+        // Send the formatted date and time as plain text
+        res.status(200).send(formattedDate);
     } catch (error) {
         console.error("Error fetching IP data:", error);
-        res.status(500).json({ error: "Kon de tijd niet ophalen" });
+        res.status(500).send("Could not retrieve the time");
     }
 }
