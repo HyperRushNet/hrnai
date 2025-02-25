@@ -42,7 +42,7 @@ export default async function handler(req, res) {
         const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
         
         // Format the output as a string
-        const formattedOutput = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value} Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value} Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
+        const formattedOutput = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}, Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}, Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
 
         // Send the formatted output as plain text
         res.status(200).send(formattedOutput);
