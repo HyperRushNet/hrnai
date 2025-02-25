@@ -32,8 +32,8 @@ export default async function handler(req, res) {
             timeZone: timezone, 
             weekday: 'long', 
             year: 'numeric', 
-            month: 'long', 
-            day: 'numeric',
+            month: '2-digit', 
+            day: '2-digit',
             hour: '2-digit', 
             minute: '2-digit', 
             hour12: false 
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
         const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
         const responseJson = {
             weekday: formattedDate.find(part => part.type === 'weekday')?.value,
-            date: `${formattedDate.find(part => part.type === 'day')?.value} ${formattedDate.find(part => part.type === 'month')?.value} ${formattedDate.find(part => part.type === 'year')?.value}`,
+            date: `${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}`,
             time: `${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}`,
             timezone: timezone
         };
