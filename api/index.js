@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
         // Check if location information is available
         if (!locationData || locationData.status !== "success") {
-            return res.status(500).send("Could not retrieve location information");
+            return res.status(500).json({ error: "Could not retrieve location information" });
         }
 
         // Extract the timezone from location data
@@ -30,20 +30,27 @@ export default async function handler(req, res) {
         const date = new Date();
         const options = { 
             timeZone: timezone, 
-            weekday: 'long', // Include the day of the week
+            weekday: 'long', 
             year: 'numeric', 
             month: 'long', 
             day: 'numeric',
             hour: '2-digit', 
             minute: '2-digit', 
-            hour12: false // Use 24-hour format
+            hour12: false 
         };
-        const formattedDate = date.toLocaleString('en-US', options);
+        
+        const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
+        const responseJson = {
+            day_of_week: formattedDate.find(part => part.type === 'weekday')?.value,
+            date: `${formattedDate.find(part => part.type === 'day')?.value} ${formattedDate.find(part => part.type === 'month')?.value} ${formattedDate.find(part => part.type === 'year')?.value}`,
+            time: `${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}`,
+            timezone: timezone
+        };
 
-        // Send the formatted date and time as plain text
-        res.status(200).send(formattedDate);
+        // Send the formatted date and time as JSON
+        res.status(200).json(responseJson);
     } catch (error) {
         console.error("Error fetching IP data:", error);
-        res.status(500).send("Could not retrieve the time");
+        res.status(500).json({ error: "Could not retrieve the time" });
     }
 }
