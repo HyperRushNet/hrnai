@@ -36,7 +36,8 @@ export default async function handler(req, res) {
             day: 'numeric',
             hour: '2-digit', 
             minute: '2-digit', 
-            second: '2-digit'
+            second: '2-digit',
+            hour12: false // Use 24-hour format
         };
         const formattedDate = date.toLocaleString('en-US', options);
 
