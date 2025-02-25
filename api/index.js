@@ -2,8 +2,18 @@ export default async function handler(req, res) {
     try {
         // Voeg CORS-headers toe
         res.setHeader('Access-Control-Allow-Origin', '*');  // Sta verzoeken van alle domeinen toe
-        res.setHeader('Access-Control-Allow-Methods', 'GET'); // Sta alleen GET-verzoeken toe
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST'); // Sta zowel GET- als POST-verzoeken toe
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');  // Sta de Content-Type header toe
+
+        // OPTIONS-verzoek voor CORS-ondersteuning
+        if (req.method === 'OPTIONS') {
+            return res.status(200).end();
+        }
+
+        // Alleen GET en POST toestaan
+        if (req.method !== 'GET' && req.method !== 'POST') {
+            return res.status(405).json({ error: "Method not allowed" });
+        }
 
         // Haal de echte IP uit de headers
         const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
@@ -15,7 +25,7 @@ export default async function handler(req, res) {
 
         // Controleer of locatie-informatie beschikbaar is
         if (!locationData || locationData.status !== "success") {
-            return res.status(500).send("Kon geen locatie-informatie ophalen");
+            return res.status(500).json({ error: "Kon geen locatie-informatie ophalen" });
         }
 
         // Haal de tijdzone uit de locatie-data
@@ -25,7 +35,7 @@ export default async function handler(req, res) {
         const date = new Date();
         const options = { 
             timeZone: timezone, 
-            weekday: 'long', // Voeg de dag van de week toe
+            weekday: 'long', 
             year: 'numeric', 
             month: 'long', 
             day: 'numeric',
@@ -35,10 +45,15 @@ export default async function handler(req, res) {
         };
         const formattedDate = date.toLocaleString('nl-NL', options);
 
-        // Stuur de datum, dag van de week en tijd terug als platte tekst
-        res.status(200).send(formattedDate);
+        // Stuur de JSON-response terug
+        res.status(200).json({
+            ip: userIp,
+            timezone,
+            datetime: formattedDate
+        });
+
     } catch (error) {
         console.error("Error fetching IP data:", error);
-        res.status(500).send("Kon de tijd niet ophalen");
+        res.status(500).json({ error: "Kon de tijd niet ophalen" });
     }
 }
