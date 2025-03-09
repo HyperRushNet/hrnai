@@ -25,7 +25,7 @@ export default async function handler(req, res) {
             const randomSeed = Math.floor(Math.random() * 1000) + 1;
 
             // Systeem prompt voor de AI
-            const systemPrompt = `You are going to get a huge text that comes from content-main of a webpage. Summarize the content while looking out for answers for the question the user asks if there is one.`; // Laat de rest van de prompt ongewijzigd
+            const systemPrompt = `You are going to get a huge text that comes from content-main of a webpage. Summarize the content while looking out for answers for the question the user asks if there is one. Only answer in english exept for a few words that are needed in another language. Never use " or '`; // Laat de rest van de prompt ongewijzigd
 
             // Maak het bericht voor de AI
             const messages = [
