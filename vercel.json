@@ -1,5 +1,0 @@
-{
-  "redirects": [
-    { "source": "/api/index.js", "destination": "/index.js", "permanent": true }
-  ]
-}
