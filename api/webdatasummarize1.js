@@ -30,7 +30,7 @@ export default async function handler(req, res) {
             const randomSeed = Math.floor(Math.random() * 1000) + 1;
 
             // Systeem prompt voor de AI, met de zoekterm
-            const systemPrompt = `You are going to get a huge text that comes from content-main of a webpage. The user is first going to give an objective for you to scan in the text and you need to give all information about it as short as possible. The objective is: ${search}`; // Zoekterm toevoegen aan de prompt
+            const systemPrompt = `You are going to get a huge text that comes from content-main of a webpage. The user is first going to give an objective for you to scan in the text and you need to give all information about it as short as possible. The objective is: ${search}. If the text doesn't have any information about the objective, say what the text is about and give an error message but only give answers based on data in the text, not your database.`; // Zoekterm toevoegen aan de prompt
 
             // Maak het bericht voor de AI
             const messages = [
