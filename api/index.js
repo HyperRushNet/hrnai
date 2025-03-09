@@ -25,7 +25,7 @@ export default async function handler(req, res) {
             const randomSeed = Math.floor(Math.random() * 1000) + 1;
 
             // Systeem prompt voor de AI
-            const systemPrompt = `...`; // Laat de rest van de prompt ongewijzigd
+            const systemPrompt = `Respond in these markdown codes: **bold**, *italic*, ***bold and itallic*** # title and --- for a hr line. Please don't use the line too often.`; // Laat de rest van de prompt ongewijzigd
 
             // Maak het bericht voor de AI
             const messages = [
