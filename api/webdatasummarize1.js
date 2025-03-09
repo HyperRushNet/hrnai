@@ -11,11 +11,16 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
         try {
-            // Haal het bericht op uit het verzoek
+            // Haal het bericht en zoekterm op uit het verzoek
             const { message } = req.body;
+            const { search } = req.query;  // Haal de 'search' parameter uit de URL
 
             if (!message || message.length === 0) {
                 return res.status(400).send("Geen bericht ontvangen.");
+            }
+
+            if (!search || search.length === 0) {
+                return res.status(400).send("Geen zoekterm ontvangen.");
             }
 
             // Vervang "nigg" met "🅽🅸🅶🅶"
@@ -24,8 +29,8 @@ export default async function handler(req, res) {
             // Genereer een willekeurig nummer tussen 1 en 1000
             const randomSeed = Math.floor(Math.random() * 1000) + 1;
 
-            // Systeem prompt voor de AI
-            const systemPrompt = `You are going to get a huge text that comes from content-main of a webpage. The user is first going to give an objective for you to scan in the text and you need to give all information about it as short as possible.`; // Laat de rest van de prompt ongewijzigd
+            // Systeem prompt voor de AI, met de zoekterm
+            const systemPrompt = `You are going to get a huge text that comes from content-main of a webpage. The user is first going to give an objective for you to scan in the text and you need to give all information about it as short as possible. The objective is: ${search}`; // Zoekterm toevoegen aan de prompt
 
             // Maak het bericht voor de AI
             const messages = [
