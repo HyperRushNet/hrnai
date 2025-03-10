@@ -39,7 +39,7 @@ export default async function handler(req, res) {
                     const response = await fetch(`https://text.pollinations.ai/openai?seed=${randomSeed}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ messages, max_tokens: 100 })
+                        body: JSON.stringify({ messages, max_tokens: 10 })
                     });
 
                     if (!response.ok) throw new Error("Fout bij het aanroepen van de AI API.");
