@@ -1,5 +1,5 @@
-export default async function handler(req, res) {
-    // CORS-instellingen (uitgeschakeld)
+export default async function handler(req, context) {
+    // CORS-instellingen
     const headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -7,17 +7,24 @@ export default async function handler(req, res) {
     };
 
     // Handle OPTIONS request (voor CORS)
-    if (req.method === "OPTIONS") {
-        return res.status(200).setHeaders(headers).end();
+    if (req.httpMethod === "OPTIONS") {
+        return {
+            statusCode: 200,
+            headers: headers
+        };
     }
 
-    if (req.method === 'POST') {
+    if (req.httpMethod === 'POST') {
         try {
             // Haal het bericht op uit het verzoek
-            const { message } = req.body;
+            const { message } = JSON.parse(req.body);
 
             if (!message || message.length === 0) {
-                return res.status(400).setHeaders(headers).send("Geen bericht ontvangen.");
+                return {
+                    statusCode: 400,
+                    headers: headers,
+                    body: JSON.stringify({ error: "Geen bericht ontvangen." })
+                };
             }
 
             // Vervang "nigg" met "🅽🅸🅶🅶"
@@ -27,7 +34,7 @@ export default async function handler(req, res) {
             const randomSeed = Math.floor(Math.random() * 1000) + 1;
 
             // Systeem prompt voor de AI
-            const systemPrompt = `Respond in pure text but when decorating text, use this cheatsheet: **bold**, *italic*, ***bold and itallic*** # title and --- for a hr line. Please don't use the line too often. Only # Exists, not ## or anything else. Always put an empty line underneath a title in your reponse. You almost never use those decorations exept when really needed.`; // Laat de rest van de prompt ongewijzigd
+            const systemPrompt = `Respond in pure text but when decorating text, use this cheatsheet: **bold**, *italic*, ***bold and itallic*** # title and --- for a hr line. Please don't use the line too often. Only # Exists, not ## or anything else. Always put an empty line underneath a title in your reponse. You almost never use those decorations exept when really needed.`;
 
             // Maak het bericht voor de AI
             const messages = [
@@ -69,13 +76,25 @@ export default async function handler(req, res) {
             aiMessage = aiMessage.replace(/🅽🅸🅶🅶/g, "nigg");
 
             // Verstuur het aangepaste AI-antwoord terug naar de client
-            res.status(200).setHeaders(headers).send(aiMessage);
+            return {
+                statusCode: 200,
+                headers: headers,
+                body: JSON.stringify({ message: aiMessage })
+            };
 
         } catch (error) {
             console.error("Fout bij API-aanroep:", error);
-            res.status(500).setHeaders(headers).send("Er is iets mis gegaan bij het verwerken van je aanvraag.");
+            return {
+                statusCode: 500,
+                headers: headers,
+                body: JSON.stringify({ error: "Er is iets mis gegaan bij het verwerken van je aanvraag." })
+            };
         }
     } else {
-        res.status(405).setHeaders(headers).send("Alleen POST-aanvragen zijn toegestaan.");
+        return {
+            statusCode: 405,
+            headers: headers,
+            body: JSON.stringify({ error: "Alleen POST-aanvragen zijn toegestaan." })
+        };
     }
 }
