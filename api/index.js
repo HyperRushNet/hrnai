@@ -1,14 +1,12 @@
 export default async function handler(req, res) {
-    // CORS-instellingen
-    const headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
-    };
+    // CORS-instellingen (uitgeschakeld)
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     // Handle OPTIONS request (voor CORS)
     if (req.method === "OPTIONS") {
-        return res.status(200).set(headers).send(null);
+        return res.status(200).end();
     }
 
     if (req.method === 'POST') {
@@ -17,7 +15,7 @@ export default async function handler(req, res) {
             const { message } = req.body;
 
             if (!message || message.length === 0) {
-                return res.status(400).set(headers).json({ error: "Geen bericht ontvangen." });
+                return res.status(400).send("Geen bericht ontvangen.");
             }
 
             // Vervang "nigg" met "🅽🅸🅶🅶"
@@ -27,7 +25,7 @@ export default async function handler(req, res) {
             const randomSeed = Math.floor(Math.random() * 1000) + 1;
 
             // Systeem prompt voor de AI
-            const systemPrompt = `Respond in pure text but when decorating text, use this cheatsheet: **bold**, *italic*, ***bold and itallic*** # title and --- for a hr line. Please don't use the line too often. Only # Exists, not ## or anything else. Always put an empty line underneath a title in your reponse. You almost never use those decorations exept when really needed.`;
+            const systemPrompt = `Respond in pure text but when decorating text, use this cheatsheet: **bold**, *italic*, ***bold and itallic*** # title and --- for a hr line. Please don't use the line too often. Only # Exists, not ## or anything else. Always put an empty line underneath a title in your reponse. You almost never use those decorations exept when really needed.`; // Laat de rest van de prompt ongewijzigd
 
             // Maak het bericht voor de AI
             const messages = [
@@ -69,13 +67,13 @@ export default async function handler(req, res) {
             aiMessage = aiMessage.replace(/🅽🅸🅶🅶/g, "nigg");
 
             // Verstuur het aangepaste AI-antwoord terug naar de client
-            return res.status(200).set(headers).json({ message: aiMessage });
+            res.status(200).send(aiMessage);
 
         } catch (error) {
             console.error("Fout bij API-aanroep:", error);
-            return res.status(500).set(headers).json({ error: "Er is iets mis gegaan bij het verwerken van je aanvraag." });
+            res.status(500).send("Er is iets mis gegaan bij het verwerken van je aanvraag.");
         }
     } else {
-        return res.status(405).set(headers).json({ error: "Alleen POST-aanvragen zijn toegestaan." });
+        res.status(405).send("Alleen POST-aanvragen zijn toegestaan.");
     }
 }
