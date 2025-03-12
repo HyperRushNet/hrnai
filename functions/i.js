@@ -1,4 +1,4 @@
-export default async function handler(req, context) {
+export default async function handler(req) {
     // CORS-instellingen
     const headers = {
         "Access-Control-Allow-Origin": "*",
@@ -8,10 +8,10 @@ export default async function handler(req, context) {
 
     // Handle OPTIONS request (voor CORS)
     if (req.httpMethod === "OPTIONS") {
-        return {
-            statusCode: 200,
+        return new Response(null, {
+            status: 200,
             headers: headers
-        };
+        });
     }
 
     if (req.httpMethod === 'POST') {
@@ -20,11 +20,10 @@ export default async function handler(req, context) {
             const { message } = JSON.parse(req.body);
 
             if (!message || message.length === 0) {
-                return {
-                    statusCode: 400,
-                    headers: headers,
-                    body: JSON.stringify({ error: "Geen bericht ontvangen." })
-                };
+                return new Response(JSON.stringify({ error: "Geen bericht ontvangen." }), {
+                    status: 400,
+                    headers: headers
+                });
             }
 
             // Vervang "nigg" met "🅽🅸🅶🅶"
@@ -76,25 +75,22 @@ export default async function handler(req, context) {
             aiMessage = aiMessage.replace(/🅽🅸🅶🅶/g, "nigg");
 
             // Verstuur het aangepaste AI-antwoord terug naar de client
-            return {
-                statusCode: 200,
-                headers: headers,
-                body: JSON.stringify({ message: aiMessage })
-            };
+            return new Response(JSON.stringify({ message: aiMessage }), {
+                status: 200,
+                headers: headers
+            });
 
         } catch (error) {
             console.error("Fout bij API-aanroep:", error);
-            return {
-                statusCode: 500,
-                headers: headers,
-                body: JSON.stringify({ error: "Er is iets mis gegaan bij het verwerken van je aanvraag." })
-            };
+            return new Response(JSON.stringify({ error: "Er is iets mis gegaan bij het verwerken van je aanvraag." }), {
+                status: 500,
+                headers: headers
+            });
         }
     } else {
-        return {
-            statusCode: 405,
-            headers: headers,
-            body: JSON.stringify({ error: "Alleen POST-aanvragen zijn toegestaan." })
-        };
+        return new Response(JSON.stringify({ error: "Alleen POST-aanvragen zijn toegestaan." }), {
+            status: 405,
+            headers: headers
+        });
     }
 }
