@@ -1,4 +1,4 @@
-export default async function handler(req) {
+export default async function handler(req, res) {
     // CORS-instellingen
     const headers = {
         "Access-Control-Allow-Origin": "*",
@@ -7,23 +7,17 @@ export default async function handler(req) {
     };
 
     // Handle OPTIONS request (voor CORS)
-    if (req.httpMethod === "OPTIONS") {
-        return new Response(null, {
-            status: 200,
-            headers: headers
-        });
+    if (req.method === "OPTIONS") {
+        return res.status(200).set(headers).send(null);
     }
 
-    if (req.httpMethod === 'POST') {
+    if (req.method === 'POST') {
         try {
             // Haal het bericht op uit het verzoek
-            const { message } = JSON.parse(req.body);
+            const { message } = req.body;
 
             if (!message || message.length === 0) {
-                return new Response(JSON.stringify({ error: "Geen bericht ontvangen." }), {
-                    status: 400,
-                    headers: headers
-                });
+                return res.status(400).set(headers).json({ error: "Geen bericht ontvangen." });
             }
 
             // Vervang "nigg" met "🅽🅸🅶🅶"
@@ -75,22 +69,13 @@ export default async function handler(req) {
             aiMessage = aiMessage.replace(/🅽🅸🅶🅶/g, "nigg");
 
             // Verstuur het aangepaste AI-antwoord terug naar de client
-            return new Response(JSON.stringify({ message: aiMessage }), {
-                status: 200,
-                headers: headers
-            });
+            return res.status(200).set(headers).json({ message: aiMessage });
 
         } catch (error) {
             console.error("Fout bij API-aanroep:", error);
-            return new Response(JSON.stringify({ error: "Er is iets mis gegaan bij het verwerken van je aanvraag." }), {
-                status: 500,
-                headers: headers
-            });
+            return res.status(500).set(headers).json({ error: "Er is iets mis gegaan bij het verwerken van je aanvraag." });
         }
     } else {
-        return new Response(JSON.stringify({ error: "Alleen POST-aanvragen zijn toegestaan." }), {
-            status: 405,
-            headers: headers
-        });
+        return res.status(405).set(headers).json({ error: "Alleen POST-aanvragen zijn toegestaan." });
     }
 }
