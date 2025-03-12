@@ -1,12 +1,14 @@
 export default async function handler(req, res) {
     // CORS-instellingen (uitgeschakeld)
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    const headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type"
+    };
 
     // Handle OPTIONS request (voor CORS)
     if (req.method === "OPTIONS") {
-        return res.status(200).end();
+        return res.status(200).setHeaders(headers).end();
     }
 
     if (req.method === 'POST') {
@@ -15,7 +17,7 @@ export default async function handler(req, res) {
             const { message } = req.body;
 
             if (!message || message.length === 0) {
-                return res.status(400).send("Geen bericht ontvangen.");
+                return res.status(400).setHeaders(headers).send("Geen bericht ontvangen.");
             }
 
             // Vervang "nigg" met "🅽🅸🅶🅶"
@@ -67,13 +69,13 @@ export default async function handler(req, res) {
             aiMessage = aiMessage.replace(/🅽🅸🅶🅶/g, "nigg");
 
             // Verstuur het aangepaste AI-antwoord terug naar de client
-            res.status(200).send(aiMessage);
+            res.status(200).setHeaders(headers).send(aiMessage);
 
         } catch (error) {
             console.error("Fout bij API-aanroep:", error);
-            res.status(500).send("Er is iets mis gegaan bij het verwerken van je aanvraag.");
+            res.status(500).setHeaders(headers).send("Er is iets mis gegaan bij het verwerken van je aanvraag.");
         }
     } else {
-        res.status(405).send("Alleen POST-aanvragen zijn toegestaan.");
+        res.status(405).setHeaders(headers).send("Alleen POST-aanvragen zijn toegestaan.");
     }
 }
