@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 module.exports = async (req, res) => {
-    const { url } = req.query;  // Verkrijg de URL van de query parameter
+    const { q: url } = req.query;  // Verkrijg de URL van de queryparameter 'q'
     
     if (!url) {
         return res.status(400).json({ error: 'Geen URL opgegeven' });
