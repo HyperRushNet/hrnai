@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
     try {
-        // Voeg CORS-headers toe
+        // Voeg CORS-headers toe 
         res.setHeader('Access-Control-Allow-Origin', '*');  // Allow requests from any domain
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST'); // Allow both GET and POST requests
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');  // Allow Content-Type header
