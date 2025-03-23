@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Output Weergave</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 10px;
+            background-color: #f4f4f9;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 14px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            white-space: pre-wrap; /* Zorgt ervoor dat de tekst netjes wordt weergegeven */
+        }
+    </style>
+</head>
+<body>
+
+<h1>AI Output Weergave</h1>
+<p>Klik op de knop om de AI-output te krijgen van de externe API.</p>
+
+<button onclick="fetchData()">Verwerk Data</button>
+
+<div id="output"></div>
+
+<script>
+    async function fetchData() {
+        try {
+            // Voer een GET-verzoek uit naar de serverless functie
+            const response = await fetch('/api/ai');
+            const data = await response.json();
+            
+            // Toon de AI-output in het output-veld zonder innerHTML
+            document.getElementById('output').textContent = `AI zei: ${data.output}`;
+        } catch (error) {
+            document.getElementById('output').textContent = "Fout: Er is iets misgegaan bij het ophalen van de gegevens.";
+        }
+    }
+</script>
+
+</body>
+</html>
