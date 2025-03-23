@@ -79,6 +79,9 @@ export default async function handler(req, res) {
         let result = '';
         let previousResult = '';
 
+        // Voeg een vertraging van 0.025 seconden toe voor elke letter
+        const delay = 25; // 0.025 seconden = 25 milliseconden
+
         // Start streamen en verstuur de nieuwe data naar de client
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         while (!done) {
@@ -90,7 +93,6 @@ export default async function handler(req, res) {
             const cleanedResult = result
                 .split('\n')
                 .filter(line => {
-                    // Verwijder de 'data: ' prefix en stop bij [DONE]
                     return line && !line.startsWith('data: [DONE]');
                 })
                 .map(line => line.replace(/^data: /, '')) // Verwijder 'data: ' van elke regel
@@ -99,7 +101,6 @@ export default async function handler(req, res) {
             // Zoek de inhoud van de 'content' tag en voeg deze samen zonder spaties
             const contentData = cleanedResult.split('\n')
                 .filter(line => {
-                    // Zoek naar regels die een 'content' tag bevatten
                     try {
                         const parsedLine = JSON.parse(line);
                         return parsedLine?.choices?.some(choice => choice?.delta?.content);
@@ -108,7 +109,6 @@ export default async function handler(req, res) {
                     }
                 })
                 .map(line => {
-                    // Extract de content van de 'content' tag en voeg die samen
                     try {
                         const parsedLine = JSON.parse(line);
                         return parsedLine?.choices?.map(choice => choice?.delta?.content).join('');
@@ -121,10 +121,14 @@ export default async function handler(req, res) {
             // Vervang nieuwe lijnen door '\newline\' in plaats van een echte nieuwe lijn
             const formattedContent = contentData.replace(/\n/g, '\\newline\\');
 
-            // Verzend alleen de nieuwe content naar de client
+            // Verzend alleen de nieuwe content naar de client, letter voor letter met vertraging
             const newContent = formattedContent.replace(previousResult, ''); // Verwijder de oude data
             if (newContent) {
-                res.write(newContent);  // Stuur alleen de nieuwe data naar de client
+                for (let i = 0; i < newContent.length; i++) {
+                    const letter = newContent.charAt(i);
+                    res.write(letter);  // Stuur elke letter
+                    await new Promise(resolve => setTimeout(resolve, delay));  // Wacht 0.025 seconden
+                }
                 previousResult = formattedContent; // Sla de huidige data op als de vorige
             }
 
