@@ -13,17 +13,10 @@ export default async function handler(req, res) {
         // Zorg ervoor dat het een POST-verzoek is
         if (req.method === 'POST') {
             // Verkrijg de JSON-gegevens van de POST-body
-            const { q, image } = req.body;
+            const { q, fileData } = req.body;
 
             if (!q) {
                 return res.status(400).json({ message: 'Parameter q (systemInstruction) is vereist.' });
-            }
-
-            // Als een afbeelding is geüpload, decodeer de Base64-encoded afbeelding
-            let imageBuffer = null;
-            if (image) {
-                const base64Data = image.split(',')[1]; // Verwijder de prefix van de Base64 string
-                imageBuffer = Buffer.from(base64Data, 'base64');
             }
 
             // Verkrijg de echte IP uit de headers
@@ -70,6 +63,14 @@ export default async function handler(req, res) {
                     { role: "user", content: fullSystemInstruction }
                 ]
             };
+
+            // Voeg de bestandgegevens toe als een base64 afbeelding
+            if (fileData) {
+                requestBody.messages.push({
+                    role: "user",
+                    content: [{ type: "image_data", image_base64: fileData }], // Gebruik image_base64 om een base64-afbeelding te sturen
+                });
+            }
 
             // Verstuur de data naar de externe API
             const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
