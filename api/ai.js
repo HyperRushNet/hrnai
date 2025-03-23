@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       // Streaming the response to the client
       let done = false;
       let result = '';
-      let content = '';  // Variable to hold the content from AI response
+      let rawContent = '';  // This will hold the concatenated content without spaces
 
       while (!done) {
         const { value, done: readerDone } = await reader.read();
@@ -62,21 +62,16 @@ export default async function handler(req, res) {
 
             try {
               const parsedData = JSON.parse(jsonStr);
-              // If content is available, append it without extra space or newline
-              if (parsedData.choices && parsedData.choices.length > 0) {
-                const contentText = parsedData.choices[0].delta.content || '';
-                content += contentText; // Directly append content without spaces or newlines
+
+              // Check if content exists in parsedData and append it to the rawContent
+              if (parsedData.choices && parsedData.choices[0].delta && parsedData.choices[0].delta.content) {
+                const content = parsedData.choices[0].delta.content;
+                rawContent += content; // Concatenate the content directly without spaces
               }
             } catch (error) {
               console.error('Error processing JSON:', error);
             }
           }
-        }
-
-        // Send the accumulated content in real-time as a single string to the client
-        if (content) {
-          res.write(content);
-          content = '';  // Clear the content buffer after sending it
         }
 
         // End the loop when the external API signals '[DONE]'
@@ -85,8 +80,9 @@ export default async function handler(req, res) {
         }
       }
 
-      // End the response once the data is fully streamed
-      res.end();
+      // After all content is processed, send it as a single response
+      res.write(rawContent); // Send all concatenated content at once
+      res.end();  // End the response
 
     } catch (error) {
       console.error('Error streaming raw AI response:', error);
