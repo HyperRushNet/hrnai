@@ -77,8 +77,9 @@ export default async function handler(req, res) {
         const decoder = new TextDecoder();
         let done = false;
         let result = '';
+        let previousResult = '';
 
-        // Start streamen en verstuur de data naar de client
+        // Start streamen en verstuur de nieuwe data naar de client
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
         while (!done) {
             const { value, done: readerDone } = await reader.read();
@@ -95,8 +96,12 @@ export default async function handler(req, res) {
                 .map(line => line.replace(/^data: /, '')) // Verwijder 'data: ' van elke regel
                 .join('\n');
 
-            // Stuur de opgeschoonde data naar de client
-            res.write(cleanedResult);
+            // Stuur enkel de nieuwe data die niet eerder is verstuurd
+            const newData = cleanedResult.replace(previousResult, ''); // Verwijder de oude data
+            if (newData) {
+                res.write(newData);  // Stuur alleen de nieuwe data naar de client
+                previousResult = cleanedResult; // Sla de huidige data op als de vorige
+            }
 
             // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
             if (result.includes('data: [DONE]')) {
