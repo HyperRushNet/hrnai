@@ -1,6 +1,17 @@
 // File: api/ai.js
 
 export default async function handler(req, res) {
+  // Enable CORS headers for the frontend
+  res.setHeader('Access-Control-Allow-Origin', '*');  // Allow all origins, or specify your domain
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle OPTIONS preflight request for CORS
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Handle POST request to interact with the AI model
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
