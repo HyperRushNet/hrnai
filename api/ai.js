@@ -1,37 +1,70 @@
-// api/stream.js (Vercel serverless function)
+// api/upload.js (for Vercel)
+
+const fetch = require('node-fetch');
+
 module.exports = async (req, res) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
-
-    try {
-        // Verkrijg de systeeminstructie en bestandsdata uit de request body
+    if (req.method === 'POST') {
         const { systemInstruction, fileData } = req.body;
-        
-        // Stel de request body samen
-        const requestBody = {
-            messages: [
-                { role: "system", content: "Je bent een behulpzame AI-assistent." },
-                { role: "user", content: systemInstruction },
-            ]
-        };
 
-        if (fileData) {
-            requestBody.messages.push({
-                role: "user",
-                content: [{ type: "image_url", image_url: { url: fileData } }],
-            });
+        if (!systemInstruction && !fileData) {
+            return res.status(400).json({ error: "Please provide a question or upload an image." });
         }
 
-        // Maak de API-aanroep naar Pollinations AI
-        const dataStream = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
+        try {
+            // Fetch date information
+            const dateText = await fetchDateText();
+
+            // Construct full system instruction
+            const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${systemInstruction}`;
+
+            // Construct the request body for the external API
+            const requestBody = {
+                messages: [
+                    { role: "system", content: "Je bent een behulpzame AI-assistent." },
+                    { role: "user", content: fullSystemInstruction }
+                ]
+            };
+
+            // If file data exists, include it in the request body
+            if (fileData) {
+                requestBody.messages.push({
+                    role: "user",
+                    content: [{ type: "image_url", image_url: { url: fileData } }],
+                });
+            }
+
+            // Send the request to the processing API
+            const response = await sendToProcessingAPI(requestBody);
+            res.status(200).json({ content: response });
+
+        } catch (error) {
+            console.error('Error processing request:', error);
+            res.status(500).json({ error: 'Server error' });
+        }
+    } else {
+        res.status(405).json({ error: 'Method not allowed' });
+    }
+};
+
+async function fetchDateText() {
+    try {
+        const response = await fetch('https://hrnai.vercel.app/api/date');
+        return await response.text();
+    } catch (error) {
+        console.error('Error fetching date text:', error);
+        return '';
+    }
+}
+
+async function sendToProcessingAPI(requestBody) {
+    try {
+        const response = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
         });
 
-        const reader = dataStream.body.getReader();
+        const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let done = false;
         let result = '';
@@ -41,48 +74,14 @@ module.exports = async (req, res) => {
             done = readerDone;
             result += decoder.decode(value, { stream: true });
 
-            // Verwerk de ontvangen data en stuur de content
-            processData(result, res);
-
-            // Stop de loop als '[DONE]' is ontvangen
-            if (result.includes('[DONE]')) {
+            if (result.includes('data: [DONE]')) {
                 break;
             }
         }
 
+        return result;
     } catch (error) {
-        console.error('Fout bij het ophalen van de data:', error);
-        res.write(`data: "Er is een fout opgetreden."\n\n`);
-    }
-};
-
-// Functie om de data te verwerken en enkel de tekst door te sturen
-function processData(data, res) {
-    const lines = data.split('\n');
-    let content = '';
-
-    lines.forEach((line) => {
-        if (line.startsWith('data: ')) {
-            const jsonStr = line.substring(6).trim();
-            if (jsonStr === '[DONE]') return;
-
-            try {
-                const parsedData = JSON.parse(jsonStr);
-                parsedData.choices.forEach((choice) => {
-                    if (choice.delta && choice.delta.content) {
-                        content += choice.delta.content;
-                    }
-                });
-            } catch (error) {
-                console.error('Fout bij het verwerken van de JSON:', error);
-            }
-        }
-    });
-
-    // Verstuur de inhoud als een nieuwe regel via Server-Sent Events
-    if (content) {
-        res.write(`data: ${content}\n\n`);
-    } else {
-        res.write(`data: "Geen reacties beschikbaar."\n\n`);
+        console.error('Error sending request to processing API:', error);
+        throw new Error('Error in API communication');
     }
 }
