@@ -85,8 +85,18 @@ export default async function handler(req, res) {
             done = readerDone;
             result += decoder.decode(value, { stream: true });
 
-            // Stuur de data meteen naar de client
-            res.write(result);
+            // Verwijder de 'data: ' prefix en [DONE] van de inhoud
+            const cleanedResult = result
+                .split('\n')
+                .filter(line => {
+                    // Verwijder de 'data: ' prefix en stop bij [DONE]
+                    return line && !line.startsWith('data: [DONE]');
+                })
+                .map(line => line.replace(/^data: /, '')) // Verwijder 'data: ' van elke regel
+                .join('\n');
+
+            // Stuur de opgeschoonde data naar de client
+            res.write(cleanedResult);
 
             // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
             if (result.includes('data: [DONE]')) {
