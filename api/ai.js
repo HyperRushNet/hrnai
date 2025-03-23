@@ -77,7 +77,7 @@ export default async function handler(req, res) {
         const decoder = new TextDecoder();
         let done = false;
         let result = '';
-        let previousResult = '';
+        let previousContent = ''; // Bewaar de laatste verzonden content
 
         // Start streamen en verstuur de nieuwe data naar de client
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -106,7 +106,12 @@ export default async function handler(req, res) {
                         jsonData.choices.forEach(choice => {
                             if (choice.delta && choice.delta.content) {
                                 const content = choice.delta.content;
-                                res.write(content); // Stuur alleen de content naar de client
+                                
+                                // Verstuur alleen nieuwe content die niet eerder is verzonden
+                                if (content !== previousContent) {
+                                    res.write(content); // Stuur alleen de nieuwe content naar de client
+                                    previousContent = content; // Bewaar de verzonden content
+                                }
                             }
                         });
                     }
