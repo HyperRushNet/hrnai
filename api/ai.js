@@ -86,7 +86,7 @@ export default async function handler(req, res) {
             done = readerDone;
             result += decoder.decode(value, { stream: true });
 
-            // Verwijder de 'data: ' prefix en [DONE] van de inhoud
+            // Verwerk alleen de 'content' uit de response
             const cleanedResult = result
                 .split('\n')
                 .filter(line => {
@@ -96,11 +96,16 @@ export default async function handler(req, res) {
                 .map(line => line.replace(/^data: /, '')) // Verwijder 'data: ' van elke regel
                 .join('\n');
 
-            // Stuur enkel de nieuwe data die niet eerder is verstuurd
-            const newData = cleanedResult.replace(previousResult, ''); // Verwijder de oude data
-            if (newData) {
-                res.write(newData);  // Stuur alleen de nieuwe data naar de client
-                previousResult = cleanedResult; // Sla de huidige data op als de vorige
+            // Parse de cleanedResult als JSON en haal alleen de content op
+            try {
+                const jsonResponse = JSON.parse(cleanedResult);
+                jsonResponse.choices?.forEach(choice => {
+                    if (choice.delta && choice.delta.content) {
+                        res.write(choice.delta.content); // Alleen de 'content' tag doorsturen
+                    }
+                });
+            } catch (error) {
+                console.error('Fout bij het verwerken van de JSON:', error);
             }
 
             // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
