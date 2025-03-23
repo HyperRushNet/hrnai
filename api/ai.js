@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
   try {
     // Voer een GET-verzoek uit naar de opgegeven URL met stream=true
-    const response = await fetch('https://text.pollinations.ai/hi,%20maak%20een%20html%20code%20voor%20een%20hondensite%20clone?stream=true');
+    const response = await fetch('https://text.pollinations.ai/hi,%20maak%20een%20html%20code%20voor%20een%20netflix%20clone?stream=true');
 
     // Controleer of de response succesvol is
     if (!response.ok) {
@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Transfer-Encoding', 'chunked');
     
-    // Creëer een ReadableStream om de data stapsgewijs te verwerken
+    // Maak een ReadableStream om de data stapsgewijs te verwerken
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let aiOutput = '';
@@ -30,10 +30,10 @@ export default async function handler(req, res) {
 
         // Split de data op basis van 'data:' om meerdere blokken te extraheren
         const dataBlocks = chunk.split('data:').filter(block => block.trim() !== '');
-        
+
         dataBlocks.forEach(block => {
           const jsonData = block.trim();
-          
+
           if (jsonData === '[DONE]') {
             return; // Stop bij het [DONE] signaal
           }
