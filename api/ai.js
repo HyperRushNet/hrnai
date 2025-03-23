@@ -13,10 +13,17 @@ export default async function handler(req, res) {
         // Zorg ervoor dat het een POST-verzoek is
         if (req.method === 'POST') {
             // Verkrijg de JSON-gegevens van de POST-body
-            const { q } = req.body;
+            const { q, image } = req.body;
 
             if (!q) {
                 return res.status(400).json({ message: 'Parameter q (systemInstruction) is vereist.' });
+            }
+
+            // Als een afbeelding is geüpload, decodeer de Base64-encoded afbeelding
+            let imageBuffer = null;
+            if (image) {
+                const base64Data = image.split(',')[1]; // Verwijder de prefix van de Base64 string
+                imageBuffer = Buffer.from(base64Data, 'base64');
             }
 
             // Verkrijg de echte IP uit de headers
