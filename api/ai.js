@@ -33,16 +33,23 @@ export default async function handler(req, res) {
 
       let done = false;
       let result = '';
+      let previousContent = '';  // To store previously sent content and avoid repetition
 
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
         result += decoder.decode(value, { stream: true });
 
-        // Stream the content to the client as soon as it is received
-        writer(result);
+        // Process the current chunk of data and avoid sending repeated content
+        const newContent = extractNewContent(result, previousContent);
 
-        // Optionally, break the loop once we encounter '[DONE]'
+        // Only send new content that hasn't been sent already
+        if (newContent) {
+          writer(newContent);  // Send new content to the client
+          previousContent = newContent;  // Update previousContent with the new content
+        }
+
+        // Break if '[DONE]' is encountered in the result
         if (result.includes('data: [DONE]')) {
           break;
         }
@@ -56,4 +63,35 @@ export default async function handler(req, res) {
     // Handle other methods (GET, PUT, etc.) if needed
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
+}
+
+// Helper function to extract new content and avoid repeating previously sent content
+function extractNewContent(data, previousContent) {
+  const lines = data.split('\n');
+  let content = '';
+
+  lines.forEach((line) => {
+    if (line.startsWith('data: ')) {
+      const jsonStr = line.substring(6).trim();
+      if (jsonStr === '[DONE]') return;
+
+      try {
+        const parsedData = JSON.parse(jsonStr);
+        parsedData.choices.forEach((choice) => {
+          if (choice.delta && choice.delta.content) {
+            content += choice.delta.content;
+          }
+        });
+      } catch (error) {
+        console.error('Fout bij het verwerken van de JSON:', error);
+      }
+    }
+  });
+
+  // Only return new content that hasn't been previously sent
+  if (content !== previousContent) {
+    return content;
+  }
+
+  return '';  // Return an empty string if there's no new content
 }
