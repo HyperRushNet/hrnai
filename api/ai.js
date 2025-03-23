@@ -72,11 +72,30 @@ export default async function handler(req, res) {
             body: JSON.stringify(requestBody),
         });
 
-        // Haal de ruwe data op van de externe API
-        const rawData = await externalApiResponse.text();
+        // Verkrijg een stream van de body van de API-respons
+        const reader = externalApiResponse.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        let result = '';
 
-        // Verstuur de ruwe data direct terug naar de frontend (zonder te wrappen in een object)
-        res.status(200).send(rawData);
+        // Start streamen en verstuur de data naar de client
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        while (!done) {
+            const { value, done: readerDone } = await reader.read();
+            done = readerDone;
+            result += decoder.decode(value, { stream: true });
+
+            // Stuur de data meteen naar de client
+            res.write(result);
+
+            // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
+            if (result.includes('data: [DONE]')) {
+                break;
+            }
+        }
+
+        // Eindig de response
+        res.end();
 
     } catch (error) {
         console.error("Error fetching IP data:", error);
