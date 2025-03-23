@@ -13,10 +13,7 @@ module.exports = async (req, res) => {
 
             // Haal de datuminformatie op
             const dateText = await fetchDateText();
-            const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${systemInstruction}`;
-
-            // Voor de bestandsupload kun je de fileData verder verwerken als dat nodig is.
-            // Als het bestand een base64 geëncodeerde string is, zou je die kunnen verwerken.
+            const fullSystemInstruction = `Date info: ${dateText}\n\n${systemInstruction}`;
 
             // Stel de requestbody voor de API in
             const requestBody = {
@@ -34,33 +31,15 @@ module.exports = async (req, res) => {
             }
 
             // Verzend de API-aanroep naar de externe OpenAI API (of andere API)
-            const response = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
+            const response = await fetch('https://text.pollinations.ai/openai?model=mistral', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody),
             });
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let done = false;
-            let result = '';
+            const data = await response.json();
+            return res.status(200).json({ message: data.choices[0]?.text || 'Geen reactie ontvangen' });
 
-            // Lees de stream en verzamel de gegevens
-            while (!done) {
-                const { value, done: readerDone } = await reader.read();
-                done = readerDone;
-                result += decoder.decode(value, { stream: true });
-
-                // Verwerk de data
-                const processedData = processData(result);
-                if (processedData) {
-                    return res.status(200).json({ message: processedData });
-                }
-
-                if (result.includes('data: [DONE]')) {
-                    break;
-                }
-            }
         } catch (error) {
             console.error('Fout bij het ophalen van de data:', error);
             return res.status(500).json({ error: 'Er is een fout opgetreden bij het verwerken van de gegevens.' });
@@ -79,30 +58,4 @@ async function fetchDateText() {
         console.error('Error fetching date text:', error);
         return '';
     }
-}
-
-// Functie om de data te verwerken uit de stream
-function processData(data) {
-    const lines = data.split('\n');
-    let content = '';
-
-    lines.forEach((line) => {
-        if (line.startsWith('data: ')) {
-            const jsonStr = line.substring(6).trim();
-            if (jsonStr === '[DONE]') return;
-
-            try {
-                const parsedData = JSON.parse(jsonStr);
-                parsedData.choices.forEach((choice) => {
-                    if (choice.delta && choice.delta.content) {
-                        content += choice.delta.content;
-                    }
-                });
-            } catch (error) {
-                console.error('Error processing JSON:', error);
-            }
-        }
-    });
-
-    return content || null;
 }
