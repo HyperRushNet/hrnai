@@ -41,9 +41,8 @@ export default async function handler(req, res) {
                     res.flush(); // Zorg ervoor dat de data direct wordt verzonden naar de client
                 }
             } catch (error) {
-                // Als er een fout is bij het parsen van JSON, stuur dan een foutmelding naar de client
-                res.write(`data: Fout: Ongeldige JSON in een van de blokken.\n\n`);
-                res.flush();
+                // Foutmeldingen worden hier genegeerd
+                continue; // Gewoon doorgaan als er een fout optreedt bij parsing
             }
         }
 
