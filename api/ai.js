@@ -1,17 +1,15 @@
-// File: api/ai.js
-
 export default async function handler(req, res) {
-  // Enable CORS headers for the frontend
-  res.setHeader('Access-Control-Allow-Origin', '*');  // Allow all origins, or specify your domain
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');  // Allow all origins or specify your domain
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
+
   // Handle OPTIONS preflight request for CORS
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // Handle POST request to interact with the AI model
+  // Handle POST request
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -34,18 +32,19 @@ export default async function handler(req, res) {
     const writer = res.write.bind(res); // Use Vercel's response object to stream data
 
     let done = false;
-    let result = '';  // Store the entire response from the API (used to detect new content)
+    let result = '';
+    let newContent = ''; // Store new content to avoid duplication
 
     while (!done) {
       const { value, done: readerDone } = await reader.read();
       done = readerDone;
       result += decoder.decode(value, { stream: true });
 
-      // Look for the new content in the response by splitting into lines
+      // Split the result by newlines and process each line individually
       const lines = result.split('\n');
-      let newContent = '';
+      result = '';  // Clear result for the next loop iteration
 
-      // Process each line to find new content
+      // Extract the new content
       lines.forEach((line) => {
         if (line.startsWith('data: ')) {
           const jsonStr = line.substring(6).trim();
@@ -55,22 +54,23 @@ export default async function handler(req, res) {
             const parsedData = JSON.parse(jsonStr);
             parsedData.choices.forEach((choice) => {
               if (choice.delta && choice.delta.content) {
-                newContent += choice.delta.content;
+                // Only add the new content
+                newContent = choice.delta.content;
               }
             });
           } catch (error) {
-            console.error('Error processing JSON:', error);
+            console.error('Fout bij het verwerken van de JSON:', error);
           }
         }
       });
 
-      // If new content was found, write it and clear result for the next chunk
+      // Stream only the new content to the client
       if (newContent) {
         writer(newContent);
-        result = '';  // Reset the result to only keep the latest content
+        newContent = ''; // Clear the new content after sending
       }
 
-      // Stop when '[DONE]' is detected
+      // Optionally, break the loop once we encounter '[DONE]'
       if (result.includes('data: [DONE]')) {
         break;
       }
