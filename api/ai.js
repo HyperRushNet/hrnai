@@ -1,107 +1,68 @@
-// api/stream.js
-import { Readable } from 'stream';
+// api/stream-response.js
+const fetch = require('node-fetch');
 
 export default async function handler(req, res) {
-  // Ensure the request is a GET request
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Only GET method is allowed' });
-  }
-
-  try {
-    // Extract query parameters
-    const systemInstruction = req.query.systemInstruction || '';
-    const fileData = req.query.fileData || null;
-
-    // Fetch date text
-    const dateText = await fetchDateText();
-    const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${systemInstruction}`;
-
-    // Create the request body
-    const requestBody = {
-      messages: [
-        { role: 'system', content: 'Je bent een behulpzame AI-assistent.' },
-        { role: 'user', content: fullSystemInstruction },
-      ],
-    };
-
-    if (fileData) {
-      requestBody.messages.push({
-        role: 'user',
-        content: [{ type: 'image_url', image_url: { url: fileData } }],
-      });
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    // Send request to external API
-    const response = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
+    const systemInstruction = req.query.systemInstruction;
 
-    // Stream the response from the external API
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let done = false;
-    let result = '';
-
-    res.setHeader('Content-Type', 'text/plain;charset=UTF-8');
-    res.flushHeaders(); // Start sending the response
-
-    while (!done) {
-      const { value, done: readerDone } = await reader.read();
-      done = readerDone;
-      result += decoder.decode(value, { stream: true });
-
-      // Process the data and stream it
-      processData(result, res);
-
-      // End when we receive the '[DONE]' signal
-      if (result.includes('data: [DONE]')) {
-        break;
-      }
+    if (!systemInstruction) {
+        return res.status(400).json({ error: 'System instruction is required' });
     }
-  } catch (error) {
-    console.error('Error in the handler:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
-  }
-}
 
-// Function to fetch the date text
-async function fetchDateText() {
-  try {
-    const response = await fetch('https://hrnai.vercel.app/api/date');
-    return await response.text();
-  } catch (error) {
-    console.error('Error fetching date text:', error);
-    return '';
-  }
-}
+    try {
+        // Verkrijg de datum-informatie
+        const dateResponse = await fetch('https://hrnai.vercel.app/api/date');
+        const dateText = await dateResponse.text();
+        const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${systemInstruction}`;
 
-// Function to process and stream the content
-function processData(data, res) {
-  const lines = data.split('\n');
-  let content = '';
+        // De API request naar OpenAI (of een andere AI model API)
+        const openAIRequestBody = {
+            messages: [
+                { role: "system", content: "Je bent een behulpzame AI-assistent." },
+                { role: "user", content: fullSystemInstruction }
+            ]
+        };
 
-  lines.forEach((line) => {
-    if (line.startsWith('data: ')) {
-      const jsonStr = line.substring(6).trim();
-      if (jsonStr === '[DONE]') return;
-
-      try {
-        const parsedData = JSON.parse(jsonStr);
-        parsedData.choices.forEach((choice) => {
-          if (choice.delta && choice.delta.content) {
-            content += choice.delta.content;
-            res.write(content); // Send data as stream to the client
-          }
+        const openAIResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(openAIRequestBody),
         });
-      } catch (error) {
-        console.error('Error processing the JSON:', error);
-      }
-    }
-  });
 
-  if (content) {
-    res.write(content); // Send the final content if any
-  }
+        if (!openAIResponse.body) {
+            return res.status(500).json({ error: 'Failed to get response from AI model' });
+        }
+
+        // We gebruiken een ReadableStream om de response in real-time door te sturen naar de client
+        const reader = openAIResponse.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        let result = '';
+
+        res.setHeader('Content-Type', 'text/plain'); // We sturen de reactie in platte tekst
+
+        // Streamen van de data in real-time naar de client
+        while (!done) {
+            const { value, done: readerDone } = await reader.read();
+            done = readerDone;
+            result += decoder.decode(value, { stream: true });
+
+            // Stuur de data naar de client zodra we een stukje ontvangen
+            res.write(result);
+
+            // Stop met streamen als we '[DONE]' zien
+            if (result.includes('data: [DONE]')) {
+                break;
+            }
+        }
+
+        // Zorg ervoor dat we de response afsluiten
+        res.end();
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'An error occurred while processing your request' });
+    }
 }
