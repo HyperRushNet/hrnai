@@ -1,12 +1,12 @@
 export default async function handler(req, res) {
-    // Zorg ervoor dat de juiste headers worden meegegeven voor Server-Sent Events (SSE)
+    // Stel de juiste headers in voor Server-Sent Events (SSE)
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders(); // Directe headers naar de client sturen
+    res.flushHeaders(); // Verstuur direct de headers naar de client
 
     try {
-        // Voer een GET-verzoek uit naar de opgegeven URL (of een andere API die je gebruikt)
+        // Voer een GET-verzoek uit naar de opgegeven URL
         const response = await fetch('https://text.pollinations.ai/hi,%20maak%20een%20html%20code%20voor%20een%20netflix%20clone?stream=true');
 
         // Controleer of de response succesvol is
@@ -20,13 +20,14 @@ export default async function handler(req, res) {
 
         // Split de data op basis van 'data:' om meerdere data-blokken te extraheren
         const dataBlocks = text.split('data:').filter(block => block.trim() !== '');
-        
-        // Loop door elk data blok en stuur het naar de client
+
+        // Loop door elk data blok en stuur de inhoud naar de client
         for (const block of dataBlocks) {
             const jsonData = block.trim();
 
             if (jsonData === '[DONE]') {
-                continue; // Sla de [DONE] blokken over
+                // Negeer de blokken met [DONE], dit is geen geldige data
+                continue;
             }
 
             try {
@@ -34,7 +35,7 @@ export default async function handler(req, res) {
                 const parsedBlock = JSON.parse(jsonData);
                 const content = parsedBlock.choices.map(choice => choice.delta.content).join(""); // Geen extra spaties
 
-                // Verstuur de inhoud naar de client (via SSE)
+                // Verstuur de inhoud naar de client via SSE
                 if (content) {
                     res.write(`data: ${content}\n\n`);
                     res.flush(); // Zorg ervoor dat de data direct wordt verzonden naar de client
