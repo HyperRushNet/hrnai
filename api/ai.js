@@ -6,15 +6,29 @@ module.exports = async (req, res) => {
     res.flushHeaders();
 
     try {
+        // Verkrijg de systeeminstructie en bestandsdata uit de request body
+        const { systemInstruction, fileData } = req.body;
+        
+        // Stel de request body samen
+        const requestBody = {
+            messages: [
+                { role: "system", content: "Je bent een behulpzame AI-assistent." },
+                { role: "user", content: systemInstruction },
+            ]
+        };
+
+        if (fileData) {
+            requestBody.messages.push({
+                role: "user",
+                content: [{ type: "image_url", image_url: { url: fileData } }],
+            });
+        }
+
+        // Maak de API-aanroep naar Pollinations AI
         const dataStream = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages: [
-                    { role: "system", content: "Je bent een behulpzame AI-assistent." },
-                    { role: "user", content: "Hallo, hoe gaat het?" },
-                ]
-            })
+            body: JSON.stringify(requestBody),
         });
 
         const reader = dataStream.body.getReader();
@@ -27,21 +41,10 @@ module.exports = async (req, res) => {
             done = readerDone;
             result += decoder.decode(value, { stream: true });
 
-            // Zoek naar de 'content' tekst in de stream en stuur het als een nieuwe regel
-            if (result.includes('content":"')) {
-                // Haal de tekst na "content":" en vóór de volgende quote (") eruit
-                const contentStart = result.indexOf('content":"') + 10;  // 10 is de lengte van 'content":"'
-                const contentEnd = result.indexOf('"', contentStart);
-                const aiContent = result.substring(contentStart, contentEnd);
+            // Verwerk de ontvangen data en stuur de content
+            processData(result, res);
 
-                // Verstuur de tekst via Server-Sent Events
-                res.write(`data: ${aiContent}\n\n`);
-
-                // Reset de result string na het sturen van de content
-                result = result.slice(contentEnd);
-            }
-
-            // Stop als '[DONE]' in de response wordt gevonden
+            // Stop de loop als '[DONE]' is ontvangen
             if (result.includes('[DONE]')) {
                 break;
             }
@@ -52,3 +55,34 @@ module.exports = async (req, res) => {
         res.write(`data: "Er is een fout opgetreden."\n\n`);
     }
 };
+
+// Functie om de data te verwerken en enkel de tekst door te sturen
+function processData(data, res) {
+    const lines = data.split('\n');
+    let content = '';
+
+    lines.forEach((line) => {
+        if (line.startsWith('data: ')) {
+            const jsonStr = line.substring(6).trim();
+            if (jsonStr === '[DONE]') return;
+
+            try {
+                const parsedData = JSON.parse(jsonStr);
+                parsedData.choices.forEach((choice) => {
+                    if (choice.delta && choice.delta.content) {
+                        content += choice.delta.content;
+                    }
+                });
+            } catch (error) {
+                console.error('Fout bij het verwerken van de JSON:', error);
+            }
+        }
+    });
+
+    // Verstuur de inhoud als een nieuwe regel via Server-Sent Events
+    if (content) {
+        res.write(`data: ${content}\n\n`);
+    } else {
+        res.write(`data: "Geen reacties beschikbaar."\n\n`);
+    }
+}
