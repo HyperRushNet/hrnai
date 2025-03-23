@@ -77,7 +77,7 @@ export default async function handler(req, res) {
         const decoder = new TextDecoder();
         let done = false;
         let result = '';
-        let previousContent = ''; // Bewaar de laatste verzonden content
+        let sentContent = new Set(); // Gebruik een set om verzonden content bij te houden
 
         // Start streamen en verstuur de nieuwe data naar de client
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -107,10 +107,10 @@ export default async function handler(req, res) {
                             if (choice.delta && choice.delta.content) {
                                 const content = choice.delta.content;
                                 
-                                // Verstuur alleen nieuwe content die niet eerder is verzonden
-                                if (content !== previousContent) {
+                                // Verstuur alleen nieuwe content die nog niet is verzonden
+                                if (!sentContent.has(content)) {
                                     res.write(content); // Stuur alleen de nieuwe content naar de client
-                                    previousContent = content; // Bewaar de verzonden content
+                                    sentContent.add(content); // Bewaar de verzonden content in de set
                                 }
                             }
                         });
