@@ -2,7 +2,7 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();  // Zorgt ervoor dat de headers direct worden verzonden
+    res.flushHeaders();  // Zorg ervoor dat de headers direct worden verzonden
 
     try {
         // Voer de externe API-aanroep uit
@@ -11,7 +11,6 @@ export default async function handler(req, res) {
         // Haal de tekst op uit de response
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let aiOutput = '';
         let done = false;
 
         // Start het streamen van de data
@@ -28,14 +27,14 @@ export default async function handler(req, res) {
 
                 try {
                     const parsedBlock = JSON.parse(jsonData);
-                    const content = parsedBlock.choices.map(choice => choice.delta.content).join("");
-                    aiOutput += content;
                     
+                    // Haal de 'content' van het 'delta' object
+                    const content = parsedBlock.choices.map(choice => choice.delta.content).join("");
+
                     // Stuur het streamingresultaat naar de frontend
-                    res.write(`data: ${aiOutput.trim()}\n\n`);
+                    res.write(`data: ${content.trim()}\n\n`);
                 } catch (error) {
-                    aiOutput += "Fout: Ongeldige JSON in een van de blokken.\n";
-                    res.write(`data: ${aiOutput}\n\n`);
+                    res.write(`data: Fout: Ongeldige JSON in een van de blokken.\n\n`);
                 }
             });
         }
