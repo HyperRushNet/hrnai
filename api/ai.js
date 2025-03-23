@@ -1,66 +1,56 @@
-// api/fetchData.js
-import axios from 'axios';
+// api/aiResponse.js
 
 export default async function handler(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ message: 'Method Not Allowed' });
+  }
+
+  // Verkrijg de queryparameter 'q' (de systemInstruction)
+  const { q } = req.query;
+
+  if (!q) {
+    return res.status(400).json({ message: 'Parameter q (systemInstruction) is vereist.' });
+  }
+
+  // Verzoek om de datum op te halen
+  const dateText = await fetchDateText();
+  const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${q}`;
+
+  // Creëer het requestbody voor de externe API
+  const requestBody = {
+    messages: [
+      { role: "system", content: "Je bent een behulpzame AI-assistent." },
+      { role: "user", content: fullSystemInstruction }
+    ]
+  };
+
   try {
-    // Fetch data from the URL (streaming data)
-    const streamUrl = 'https://text.pollinations.ai/hallo,%20hoe%20gaat%20het?stream=true';
-    
-    // Axios does not natively support streaming, so we use native fetch for stream handling
-    const response = await fetch(streamUrl);
-    
-    // Check if the request is successful
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'Failed to fetch data from the API' });
-    }
+    // Verstuur de data naar de externe API
+    const response = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
 
-    // Initialize variables to store the response chunks and result
-    let chunks = '';
-    const result = [];
+    // Zorg ervoor dat de ruwe respons wordt doorgestuurd
+    const rawData = await response.text();
 
-    // Stream the data (handle the chunks)
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let done = false;
+    // De ruwe respons terugsturen naar de frontend
+    return res.status(200).json({ rawData });
 
-    while (!done) {
-      const { value, done: readerDone } = await reader.read();
-      done = readerDone;
-      const chunk = decoder.decode(value, { stream: true });
-      chunks += chunk;
-
-      // Process each chunk as it comes in
-      try {
-        const data = JSON.parse(chunk); // Parse the chunk data (it's in JSON format)
-
-        // Process the choices (content)
-        if (data.choices && Array.isArray(data.choices)) {
-          data.choices.forEach((choice) => {
-            const content = choice.delta?.content || '';
-            const contentFilter = choice.content_filter_results || {};
-
-            // Skip content if it's filtered (e.g., hate, self-harm, etc.)
-            if (contentFilter.hate?.filtered) return;
-            if (contentFilter.self_harm?.filtered) return;
-            if (contentFilter.sexual?.filtered) return;
-            if (contentFilter.violence?.filtered) return;
-
-            // Add valid content to the result
-            if (content) {
-              result.push(content);
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Error processing chunk:', err);
-      }
-    }
-
-    // Once done streaming, return the processed result
-    res.status(200).json({ processedContent: result.join('') });
-    
   } catch (error) {
-    console.error('Error fetching data:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Fout bij het ophalen van de data:', error);
+    return res.status(500).json({ message: 'Er is een fout opgetreden bij het ophalen van data.' });
+  }
+}
+
+// Functie om de datuminformatie op te halen (kan worden aangepast voor je logica)
+async function fetchDateText() {
+  try {
+    const response = await fetch('https://hrnai.vercel.app/api/date');
+    return await response.text();
+  } catch (error) {
+    console.error('Error fetching date text:', error);
+    return '';
   }
 }
