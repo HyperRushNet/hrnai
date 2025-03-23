@@ -37,7 +37,7 @@ export default async function handler(req, res) {
                 }
 
                 // Verstuur de data naar de externe API
-                const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
+                const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=openai-large', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody),
