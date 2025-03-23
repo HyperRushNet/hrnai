@@ -23,7 +23,10 @@ export default async function handler(req, res) {
             const dataBlocks = chunk.split('data:').filter(block => block.trim() !== '');
             dataBlocks.forEach(block => {
                 const jsonData = block.trim();
-                if (jsonData === '[DONE]') return;  // Skip [DONE] blokken
+                if (jsonData === '[DONE]') {
+                    res.end(); // Beëindig de verbinding wanneer [DONE] wordt ontvangen
+                    return;
+                }
 
                 try {
                     const parsedBlock = JSON.parse(jsonData);
@@ -31,15 +34,15 @@ export default async function handler(req, res) {
                     // Haal de 'content' van het 'delta' object
                     const content = parsedBlock.choices.map(choice => choice.delta.content).join("");
 
-                    // Stuur het streamingresultaat naar de frontend
-                    res.write(`data: ${content.trim()}\n\n`);
+                    // Als content niet leeg is, stuur het dan naar de frontend
+                    if (content.trim()) {
+                        res.write(`data: ${content.trim()}\n\n`);
+                    }
                 } catch (error) {
                     res.write(`data: Fout: Ongeldige JSON in een van de blokken.\n\n`);
                 }
             });
         }
-
-        res.end(); // Sluit de verbinding als de streaming is voltooid
     } catch (error) {
         res.status(500).json({ error: 'Fout: Er is iets misgegaan bij het ophalen van de gegevens.' });
     }
