@@ -13,7 +13,7 @@ export default async function handler(req, res) {
         // Zorg ervoor dat het een POST-verzoek is
         if (req.method === 'POST') {
             // Verkrijg de JSON-gegevens van de POST-body
-            const { q, fileData } = req.body;
+            const { q } = req.body;
 
             if (!q) {
                 return res.status(400).json({ message: 'Parameter q (systemInstruction) is vereist.' });
@@ -64,14 +64,6 @@ export default async function handler(req, res) {
                 ]
             };
 
-            // Voeg de bestandgegevens toe als een base64 afbeelding
-            if (fileData) {
-                requestBody.messages.push({
-                    role: "user",
-                    content: [{ type: "image_data", image_base64: fileData }], // Gebruik image_base64 om een base64-afbeelding te sturen
-                });
-            }
-
             // Verstuur de data naar de externe API
             const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
                 method: 'POST',
@@ -84,7 +76,6 @@ export default async function handler(req, res) {
             const decoder = new TextDecoder();
             let done = false;
             let result = '';
-            let previousResult = '';
 
             // Stel de content-type header in voor streaming
             res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -95,46 +86,16 @@ export default async function handler(req, res) {
                 done = readerDone;
                 result += decoder.decode(value, { stream: true });
 
-                // Verwijder de 'data: ' prefix en [DONE] van de inhoud
+                // Verwijder de 'data: ' prefix en stop bij [DONE]
                 const cleanedResult = result
                     .split('\n')
-                    .filter(line => {
-                        // Verwijder de 'data: ' prefix en stop bij [DONE]
-                        return line && !line.startsWith('data: [DONE]');
-                    })
+                    .filter(line => line && !line.startsWith('data: [DONE]'))
                     .map(line => line.replace(/^data: /, '')) // Verwijder 'data: ' van elke regel
                     .join('\n');
 
-                // Zoek de inhoud van de 'content' tag en voeg deze samen zonder spaties
-                const contentData = cleanedResult.split('\n')
-                    .filter(line => {
-                        // Zoek naar regels die een 'content' tag bevatten
-                        try {
-                            const parsedLine = JSON.parse(line);
-                            return parsedLine?.choices?.some(choice => choice?.delta?.content);
-                        } catch (e) {
-                            return false;
-                        }
-                    })
-                    .map(line => {
-                        // Extract de content van de 'content' tag en voeg die samen
-                        try {
-                            const parsedLine = JSON.parse(line);
-                            return parsedLine?.choices?.map(choice => choice?.delta?.content).join('');
-                        } catch (e) {
-                            return '';
-                        }
-                    })
-                    .join('');
-
-                // Vervang nieuwe lijnen door '\newline\' in plaats van een echte nieuwe lijn
-                const formattedContent = contentData.replace(/\n/g, '\\newline\\');
-
-                // Verzend alleen de nieuwe content naar de client
-                const newContent = formattedContent.replace(previousResult, ''); // Verwijder de oude data
-                if (newContent) {
-                    res.write(newContent);  // Stuur alleen de nieuwe data naar de client
-                    previousResult = formattedContent; // Sla de huidige data op als de vorige
+                // Verstuur de nieuwe data naar de client
+                if (cleanedResult) {
+                    res.write(cleanedResult);  // Stuur de ruwe inhoud naar de client
                 }
 
                 // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
