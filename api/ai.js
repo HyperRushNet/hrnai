@@ -13,106 +13,88 @@ export default async function handler(req, res) {
         // Zorg ervoor dat het een POST-verzoek is
         if (req.method === 'POST') {
             // Verkrijg de JSON-gegevens van de POST-body
-            const { q } = req.body;
+            const { q, fileData } = req.body;
 
             if (!q) {
                 return res.status(400).json({ message: 'Parameter q (systemInstruction) is vereist.' });
             }
 
-            // Verkrijg de echte IP uit de headers
-            const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
-            const userIp = forwardedIp || "8.8.8.8"; // Fallback naar een bekend IP als het niet gevonden is
+            // Functie om de bestandgegevens door te sturen naar de externe API
+            async function sendFileToServer(fileData, systemInstruction) {
+                const requestBody = {
+                    messages: [
+                        { role: "system", content: "Je bent een behulpzame AI-assistent." },
+                        { role: "user", content: systemInstruction }
+                    ]
+                };
 
-            // Haal locatie-informatie op via ip-api.com
-            const locationResponse = await fetch(`http://ip-api.com/json/${userIp}?fields=66846719`);
-            const locationData = await locationResponse.json();
-
-            // Controleer of locatie-informatie beschikbaar is
-            if (!locationData || locationData.status !== "success") {
-                return res.status(500).json({ error: "Could not retrieve location information" });
-            }
-
-            // Extract de tijdzone uit locatiegegevens
-            const { timezone } = locationData;
-
-            // Haal de huidige datum en tijd op in de juiste tijdzone
-            const date = new Date();
-            const options = { 
-                timeZone: timezone, 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: '2-digit', 
-                day: '2-digit',
-                hour: '2-digit', 
-                minute: '2-digit', 
-                hour12: false 
-            };
-            
-            const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
-            
-            // Formatteer de uitvoer als een string
-            const formattedOutput = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}, Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}, Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
-
-            // Combineer de datum- en tijdinformatie met de system instruction
-            const fullSystemInstruction = `Date info, only use when needed in 24h time: ${formattedOutput}\n\n${q}`;
-
-            // Maak het requestbody voor de externe API
-            const requestBody = {
-                messages: [
-                    { role: "system", content: "Je bent een behulpzame AI-assistent." },
-                    { role: "user", content: fullSystemInstruction }
-                ]
-            };
-
-            // Verstuur de data naar de externe API
-            const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody),
-            });
-
-            // Verkrijg een stream van de body van de API-respons
-            const reader = externalApiResponse.body.getReader();
-            const decoder = new TextDecoder();
-            let done = false;
-            let result = '';
-
-            // Stel de content-type header in voor streaming
-            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-            
-            // Start streamen en verstuur de nieuwe data naar de client
-            while (!done) {
-                const { value, done: readerDone } = await reader.read();
-                done = readerDone;
-                result += decoder.decode(value, { stream: true });
-
-                // Verwijder de 'data: ' prefix en stop bij [DONE]
-                const cleanedResult = result
-                    .split('\n')
-                    .filter(line => line && !line.startsWith('data: [DONE]'))
-                    .map(line => line.replace(/^data: /, '')) // Verwijder 'data: ' van elke regel
-                    .join('\n');
-
-                // Verstuur de nieuwe data naar de client
-                if (cleanedResult) {
-                    res.write(cleanedResult);  // Stuur de ruwe inhoud naar de client
+                if (fileData) {
+                    // Voeg de base64-afbeelding toe aan het verzoek
+                    requestBody.messages.push({
+                        role: "user",
+                        content: [{ type: "image_data", image_base64: fileData }],
+                    });
                 }
 
-                // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
-                if (result.includes('data: [DONE]')) {
-                    break;
+                // Verstuur de data naar de externe API
+                const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+
+                // Verkrijg een stream van de body van de API-respons
+                const reader = externalApiResponse.body.getReader();
+                const decoder = new TextDecoder();
+                let done = false;
+                let result = '';
+
+                // Stel de content-type header in voor streaming
+                res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                
+                // Start streamen en verstuur de nieuwe data naar de client
+                while (!done) {
+                    const { value, done: readerDone } = await reader.read();
+                    done = readerDone;
+                    result += decoder.decode(value, { stream: true });
+
+                    // Verwijder de 'data: ' prefix en stop bij [DONE]
+                    const cleanedResult = result
+                        .split('\n')
+                        .filter(line => line && !line.startsWith('data: [DONE]'))
+                        .map(line => line.replace(/^data: /, '')) // Verwijder 'data: ' van elke regel
+                        .join('\n');
+
+                    // Verstuur de nieuwe data naar de client
+                    if (cleanedResult) {
+                        res.write(cleanedResult);  // Stuur de ruwe inhoud naar de client
+                    }
+
+                    // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
+                    if (result.includes('data: [DONE]')) {
+                        break;
+                    }
                 }
+
+                // Eindig de response
+                res.end();
             }
 
-            // Eindig de response
-            res.end();
-
+            // Als er bestandgegevens zijn, gebruik dan de FileReader om de base64-string te verkrijgen
+            if (fileData) {
+                // Aangenomen dat de fileData al base64-gecodeerd is, zoals verwacht voor een API-call
+                await sendFileToServer(fileData, q);
+            } else {
+                // Als er geen bestand is, stuur alleen de tekstinstructie
+                await sendFileToServer(null, q);
+            }
+            
         } else {
             return res.status(405).json({ message: 'Method Not Allowed, only POST is supported.' });
         }
 
     } catch (error) {
-        console.error("Error fetching IP data:", error);
-        res.status(500).send("Could not retrieve the time or process the request.");
+        console.error("Error:", error);
+        res.status(500).send("Er is een fout opgetreden bij het verwerken van je aanvraag.");
     }
 }
