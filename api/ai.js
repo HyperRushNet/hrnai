@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
             body: JSON.stringify({
                 messages: [
                     { role: "system", content: "Je bent een behulpzame AI-assistent." },
-                    { role: "user", content: "maak een blog over vleermuizen." },
+                    { role: "user", content: "Hallo, hoe gaat het?" },
                 ]
             })
         });
@@ -27,9 +27,16 @@ module.exports = async (req, res) => {
             done = readerDone;
             result += decoder.decode(value, { stream: true });
 
-            // Verstuur data via Server-Sent Events
-            res.write(`data: ${JSON.stringify({ text: result })}\n\n`);
+            // Kijk of er nieuwe inhoud is in de response en stuur alleen de inhoud (zonder JSON structuur)
+            const contentMatch = result.match(/"content":"(.*?)"/);
+            if (contentMatch) {
+                const aiContent = contentMatch[1];
 
+                // Verstuur de tekst als nieuwe regel
+                res.write(`data: ${aiContent}\n\n`);
+            }
+
+            // Stoppen als we '[DONE]' in de response vinden
             if (result.includes('data: [DONE]')) {
                 break;
             }
@@ -37,6 +44,6 @@ module.exports = async (req, res) => {
 
     } catch (error) {
         console.error('Fout bij het ophalen van de data:', error);
-        res.write(`data: {"text": "Er is een fout opgetreden."}\n\n`);
+        res.write(`data: "Er is een fout opgetreden."\n\n`);
     }
 };
