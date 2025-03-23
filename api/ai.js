@@ -38,7 +38,6 @@ export default async function handler(req, res) {
       // Streaming the response to the client
       let done = false;
       let result = '';
-      let rawContent = '';  // This will hold the concatenated content without spaces
 
       while (!done) {
         const { value, done: readerDone } = await reader.read();
@@ -62,11 +61,10 @@ export default async function handler(req, res) {
 
             try {
               const parsedData = JSON.parse(jsonStr);
-
-              // Check if content exists in parsedData and append it to the rawContent
-              if (parsedData.choices && parsedData.choices[0].delta && parsedData.choices[0].delta.content) {
+              // Extract and send only the 'content' part from the JSON response
+              if (parsedData.choices && parsedData.choices[0] && parsedData.choices[0].delta && parsedData.choices[0].delta.content) {
                 const content = parsedData.choices[0].delta.content;
-                rawContent += content; // Concatenate the content directly without spaces
+                res.write(content); // Stream the 'content' part to the client
               }
             } catch (error) {
               console.error('Error processing JSON:', error);
@@ -80,9 +78,8 @@ export default async function handler(req, res) {
         }
       }
 
-      // After all content is processed, send it as a single response
-      res.write(rawContent); // Send all concatenated content at once
-      res.end();  // End the response
+      // End the response once the data is fully streamed
+      res.end();
 
     } catch (error) {
       console.error('Error streaming raw AI response:', error);
