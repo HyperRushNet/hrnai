@@ -1,7 +1,11 @@
 const fetch = require('node-fetch'); // Nodig voor het maken van HTTP-verzoeken in Node.js
 
 module.exports = async (req, res) => {
-    // Haal de data uit de POST body
+    if (req.method !== 'POST') {
+        return res.status(405).json({ message: 'Method Not Allowed' });
+    }
+
+    // Zorg ervoor dat we de body goed kunnen verwerken
     const { systemInstruction, fileData } = req.body;
 
     if (!systemInstruction && !fileData) {
@@ -33,6 +37,11 @@ module.exports = async (req, res) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
         });
+
+        if (!response.ok) {
+            // Fout bij de request naar de AI API
+            return res.status(response.status).json({ message: 'AI API request failed', details: await response.text() });
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
