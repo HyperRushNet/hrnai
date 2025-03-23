@@ -27,17 +27,22 @@ module.exports = async (req, res) => {
             done = readerDone;
             result += decoder.decode(value, { stream: true });
 
-            // Kijk of er nieuwe inhoud is in de response en stuur alleen de inhoud (zonder JSON structuur)
-            const contentMatch = result.match(/"content":"(.*?)"/);
-            if (contentMatch) {
-                const aiContent = contentMatch[1];
+            // Zoek naar de 'content' tekst in de stream en stuur het als een nieuwe regel
+            if (result.includes('content":"')) {
+                // Haal de tekst na "content":" en vóór de volgende quote (") eruit
+                const contentStart = result.indexOf('content":"') + 10;  // 10 is de lengte van 'content":"'
+                const contentEnd = result.indexOf('"', contentStart);
+                const aiContent = result.substring(contentStart, contentEnd);
 
-                // Verstuur de tekst als nieuwe regel
+                // Verstuur de tekst via Server-Sent Events
                 res.write(`data: ${aiContent}\n\n`);
+
+                // Reset de result string na het sturen van de content
+                result = result.slice(contentEnd);
             }
 
-            // Stoppen als we '[DONE]' in de response vinden
-            if (result.includes('data: [DONE]')) {
+            // Stop als '[DONE]' in de response wordt gevonden
+            if (result.includes('[DONE]')) {
                 break;
             }
         }
