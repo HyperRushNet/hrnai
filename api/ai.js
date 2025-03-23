@@ -24,11 +24,21 @@ export default async function handler(req, res) {
     ]
   };
 
+  // Haal de X-Forwarded-For en andere headers uit de inkomende request
+  const forwardedHeaders = {
+    'X-Forwarded-For': req.headers['x-forwarded-for'],
+    'X-Forwarded-Proto': req.headers['x-forwarded-proto'],
+    'X-Forwarded-Host': req.headers['x-forwarded-host'],
+  };
+
   try {
-    // Verstuur de data naar de externe API
+    // Verstuur de data naar de externe API met de forwarded headers
     const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...forwardedHeaders, // Voeg de forwarded headers toe aan de request
+      },
       body: JSON.stringify(requestBody),
     });
 
