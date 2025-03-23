@@ -45,24 +45,30 @@
 <body>
 
 <h1>AI Output Weergave</h1>
-<p>Klik op de knop om de AI-output te krijgen van de externe API.</p>
+<p>Klik op de knop om de AI-output te krijgen van de externe API in real-time.</p>
 
 <button onclick="fetchData()">Verwerk Data</button>
 
 <div id="output"></div>
 
 <script>
-    async function fetchData() {
-        try {
-            // Voer een GET-verzoek uit naar de serverless functie
-            const response = await fetch('/api/ai');
-            const data = await response.json();
-            
-            // Toon de AI-output in het output-veld zonder innerHTML
-            document.getElementById('output').textContent = `AI zei: ${data.output}`;
-        } catch (error) {
+    function fetchData() {
+        // Maak verbinding met de serverless functie via EventSource
+        const eventSource = new EventSource('/api/ai');
+
+        eventSource.onmessage = function(event) {
+            // Voeg de ontvangen data toe aan de output
+            document.getElementById('output').textContent += event.data;
+        };
+
+        eventSource.onerror = function() {
             document.getElementById('output').textContent = "Fout: Er is iets misgegaan bij het ophalen van de gegevens.";
-        }
+            eventSource.close();
+        };
+
+        eventSource.onopen = function() {
+            document.getElementById('output').textContent = "Verbinding met server is geopend. Wachten op data...";
+        };
     }
 </script>
 
