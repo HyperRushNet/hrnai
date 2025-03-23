@@ -53,11 +53,8 @@ export default async function handler(req, res) {
             // Formatteer de uitvoer als een string
             const formattedOutput = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}, Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}, Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
 
-            // Haal de tijd op
-            const dateText = formattedOutput;
-
             // Combineer de datum- en tijdinformatie met de system instruction
-            const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${q}`;
+            const fullSystemInstruction = `Date info, only use when needed in 24h time: ${formattedOutput}\n\n${q}`;
 
             // Maak het requestbody voor de externe API
             const requestBody = {
@@ -81,8 +78,10 @@ export default async function handler(req, res) {
             let result = '';
             let previousResult = '';
 
-            // Start streamen en verstuur de nieuwe data naar de client
+            // Stel de content-type header in voor streaming
             res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            
+            // Start streamen en verstuur de nieuwe data naar de client
             while (!done) {
                 const { value, done: readerDone } = await reader.read();
                 done = readerDone;
