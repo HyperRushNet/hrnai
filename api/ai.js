@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
     try {
         // Voer een GET-verzoek uit naar de opgegeven URL
-        const response = await fetch('https://text.pollinations.ai/hi,%20maak%20een%20html%20code%20voor%20een%20netflix%20clone?stream=true');
+        const response = await fetch('https://text.pollinations.ai/hi,%20maak%20een%20html%20code%20voor%20een%20gamesite en filmsite%20clone?stream=true');
 
         // Controleer of de response succesvol is
         if (!response.ok) {
