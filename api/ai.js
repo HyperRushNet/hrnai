@@ -34,17 +34,43 @@ export default async function handler(req, res) {
     const writer = res.write.bind(res); // Use Vercel's response object to stream data
 
     let done = false;
-    let result = '';
+    let result = '';  // Store the entire response from the API (used to detect new content)
 
     while (!done) {
       const { value, done: readerDone } = await reader.read();
       done = readerDone;
       result += decoder.decode(value, { stream: true });
 
-      // Stream the content to the client as soon as it is received
-      writer(result);
+      // Look for the new content in the response by splitting into lines
+      const lines = result.split('\n');
+      let newContent = '';
 
-      // Optionally, break the loop once we encounter '[DONE]'
+      // Process each line to find new content
+      lines.forEach((line) => {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.substring(6).trim();
+          if (jsonStr === '[DONE]') return;
+
+          try {
+            const parsedData = JSON.parse(jsonStr);
+            parsedData.choices.forEach((choice) => {
+              if (choice.delta && choice.delta.content) {
+                newContent += choice.delta.content;
+              }
+            });
+          } catch (error) {
+            console.error('Error processing JSON:', error);
+          }
+        }
+      });
+
+      // If new content was found, write it and clear result for the next chunk
+      if (newContent) {
+        writer(newContent);
+        result = '';  // Reset the result to only keep the latest content
+      }
+
+      // Stop when '[DONE]' is detected
       if (result.includes('data: [DONE]')) {
         break;
       }
