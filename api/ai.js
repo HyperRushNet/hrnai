@@ -1,66 +1,85 @@
-// api/aiResponse.js
-
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
+    try {
+        // Voeg CORS-headers toe
+        res.setHeader('Access-Control-Allow-Origin', '*');  // Allow requests from any domain
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST'); // Allow both GET and POST requests
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');  // Allow Content-Type header
 
-  // Verkrijg de queryparameter 'q' (de systemInstruction)
-  const { q } = req.query;
+        // Handle preflight requests
+        if (req.method === 'OPTIONS') {
+            return res.status(200).end();
+        }
 
-  if (!q) {
-    return res.status(400).json({ message: 'Parameter q (systemInstruction) is vereist.' });
-  }
+        // Verkrijg de queryparameter 'q' (de systemInstruction)
+        const { q } = req.query;
 
-  // Verzoek om de datum op te halen (kan worden aangepast voor je logica)
-  const dateText = await fetchDateText();
-  const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${q}`;
+        if (!q) {
+            return res.status(400).json({ message: 'Parameter q (systemInstruction) is vereist.' });
+        }
 
-  // Creëer het requestbody voor de externe API
-  const requestBody = {
-    messages: [
-      { role: "system", content: "Je bent een behulpzame AI-assistent." },
-      { role: "user", content: fullSystemInstruction }
-    ]
-  };
+        // Verkrijg de echte IP uit de headers
+        const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
+        const userIp = forwardedIp || "8.8.8.8"; // Fallback naar een bekend IP als het niet gevonden is
 
-  // Haal de X-Forwarded-For en andere headers uit de inkomende request
-  const forwardedHeaders = {
-    'X-Forwarded-For': req.headers['x-forwarded-for'],
-    'X-Forwarded-Proto': req.headers['x-forwarded-proto'],
-    'X-Forwarded-Host': req.headers['x-forwarded-host'],
-  };
+        // Haal locatie-informatie op via ip-api.com
+        const locationResponse = await fetch(`http://ip-api.com/json/${userIp}?fields=66846719`);
+        const locationData = await locationResponse.json();
 
-  try {
-    // Verstuur de data naar de externe API met de forwarded headers
-    const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...forwardedHeaders, // Voeg de forwarded headers toe aan de request
-      },
-      body: JSON.stringify(requestBody),
-    });
+        // Controleer of locatie-informatie beschikbaar is
+        if (!locationData || locationData.status !== "success") {
+            return res.status(500).json({ error: "Could not retrieve location information" });
+        }
 
-    // Haal de ruwe respons op van de externe API
-    const rawData = await externalApiResponse.text();
+        // Extract de tijdzone uit locatiegegevens
+        const { timezone } = locationData;
 
-    // Stuur de ruwe data direct terug naar de frontend (forward de raw response)
-    return res.status(200).json({ rawData });
+        // Haal de huidige datum en tijd op in de juiste tijdzone
+        const date = new Date();
+        const options = { 
+            timeZone: timezone, 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit',
+            hour: '2-digit', 
+            minute: '2-digit', 
+            hour12: false 
+        };
+        
+        const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
+        
+        // Formatteer de uitvoer als een string
+        const formattedOutput = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}, Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}, Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
 
-  } catch (error) {
-    console.error('Fout bij het doorsturen van de data:', error);
-    return res.status(500).json({ message: 'Er is een fout opgetreden bij het doorsturen van data.' });
-  }
-}
+        // Haal de tijd op
+        const dateText = formattedOutput;
 
-// Functie om de datuminformatie op te halen (kan worden aangepast voor je logica)
-async function fetchDateText() {
-  try {
-    const response = await fetch('https://hrnai.vercel.app/api/date');
-    return await response.text();
-  } catch (error) {
-    console.error('Error fetching date text:', error);
-    return '';
-  }
+        // Combineer de datum- en tijdinformatie met de system instruction
+        const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${q}`;
+
+        // Maak het requestbody voor de externe API
+        const requestBody = {
+            messages: [
+                { role: "system", content: "Je bent een behulpzame AI-assistent." },
+                { role: "user", content: fullSystemInstruction }
+            ]
+        };
+
+        // Verstuur de data naar de externe API
+        const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+        });
+
+        // Haal de ruwe data op van de externe API
+        const rawData = await externalApiResponse.text();
+
+        // Verstuur de ruwe data terug naar de frontend
+        return res.status(200).json({ rawData });
+
+    } catch (error) {
+        console.error("Error fetching IP data:", error);
+        res.status(500).send("Could not retrieve the time or process the request.");
+    }
 }
