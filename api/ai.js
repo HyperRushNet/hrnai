@@ -118,11 +118,14 @@ export default async function handler(req, res) {
                 })
                 .join('');
 
+            // Vervang nieuwe lijnen door '\newline\' in plaats van een echte nieuwe lijn
+            const formattedContent = contentData.replace(/\n/g, '\\newline\\');
+
             // Verzend alleen de nieuwe content naar de client
-            const newContent = contentData.replace(previousResult, ''); // Verwijder de oude data
+            const newContent = formattedContent.replace(previousResult, ''); // Verwijder de oude data
             if (newContent) {
                 res.write(newContent);  // Stuur alleen de nieuwe data naar de client
-                previousResult = contentData; // Sla de huidige data op als de vorige
+                previousResult = formattedContent; // Sla de huidige data op als de vorige
             }
 
             // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
