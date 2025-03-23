@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Parameter q (systemInstruction) is vereist.' });
   }
 
-  // Verzoek om de datum op te halen
+  // Verzoek om de datum op te halen (kan worden aangepast voor je logica)
   const dateText = await fetchDateText();
   const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${q}`;
 
@@ -26,21 +26,21 @@ export default async function handler(req, res) {
 
   try {
     // Verstuur de data naar de externe API
-    const response = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
+    const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
     });
 
-    // Zorg ervoor dat de ruwe respons wordt doorgestuurd
-    const rawData = await response.text();
+    // Haal de ruwe respons op van de externe API
+    const rawData = await externalApiResponse.text();
 
-    // De ruwe respons terugsturen naar de frontend
+    // Stuur de ruwe data direct terug naar de frontend (forward de raw response)
     return res.status(200).json({ rawData });
 
   } catch (error) {
-    console.error('Fout bij het ophalen van de data:', error);
-    return res.status(500).json({ message: 'Er is een fout opgetreden bij het ophalen van data.' });
+    console.error('Fout bij het doorsturen van de data:', error);
+    return res.status(500).json({ message: 'Er is een fout opgetreden bij het doorsturen van data.' });
   }
 }
 
