@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
             body: JSON.stringify({
                 messages: [
                     { role: "system", content: "Je bent een behulpzame AI-assistent." },
-                    { role: "user", content: "Jouw vraag of opdracht hier" },
+                    { role: "user", content: "maak een blog over vleermuizen." },
                 ]
             })
         });
