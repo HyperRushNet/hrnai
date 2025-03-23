@@ -1,19 +1,18 @@
 const fetch = require('node-fetch'); // Nodig voor het maken van HTTP-verzoeken in Node.js
 
-exports.handler = async (event) => {
-    const systemInstruction = event.systemInstruction || ''; 
-    const fileData = event.fileData || null;
+module.exports = async (req, res) => {
+    // Haal de data uit de POST body
+    const { systemInstruction, fileData } = req.body;
 
     if (!systemInstruction && !fileData) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ message: "Please provide a question or upload an image." })
-        };
+        return res.status(400).json({ message: "Please provide a question or upload an image." });
     }
 
+    // Verkrijg de datumtekst
     const dateText = await fetchDateText();
     const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${systemInstruction}`;
 
+    // Stel het request body in
     const requestBody = {
         messages: [
             { role: "system", content: "Je bent een behulpzame AI-assistent." },
@@ -39,37 +38,32 @@ exports.handler = async (event) => {
         const decoder = new TextDecoder();
         let done = false;
         let result = '';
-        
-        let responseStream = '';
 
+        // Start de stream en stuur de data terug naar de client
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Transfer-Encoding', 'chunked');
+        
         while (!done) {
             const { value, done: readerDone } = await reader.read();
             done = readerDone;
             result += decoder.decode(value, { stream: true });
 
-            // Stuur de tussenresultaten als een streaming response
-            responseStream += result;
-            
+            // Verwerk de data per stuk en stuur dit naar de client
+            res.write(JSON.stringify({ message: result }));
+
             if (result.includes('data: [DONE]')) {
                 break;
             }
         }
 
-        // Hier sturen we de uiteindelijke output van de API naar de client.
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ message: responseStream })
-        };
+        res.end();
     } catch (error) {
         console.error('Fout bij het ophalen van de data:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Internal Server Error', error: error.message })
-        };
+        return res.status(500).json({ message: 'Internal Server Error', error: error.message });
     }
 };
 
-// Functie om de datuminformatie op te halen (zoals in je front-end)
+// Functie om de datuminformatie op te halen
 async function fetchDateText() {
     try {
         const response = await fetch('https://hrnai.vercel.app/api/date');
