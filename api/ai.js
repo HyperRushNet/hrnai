@@ -42,12 +42,12 @@ export default async function handler(req, res) {
             // Parse de data en voeg de inhoud van delta.content toe aan aiOutput
             const parsedBlock = JSON.parse(jsonData);
             const content = parsedBlock.choices.map(choice => choice.delta.content).join("");
-            aiOutput += content;
-
-            // Zend de output naar de client zodra het beschikbaar is
-            res.write(JSON.stringify({ output: aiOutput }));
+            
+            // Zend enkel het content-deel zonder extra objecten
+            res.write(content);
           } catch (error) {
-            aiOutput += "Fout: Ongeldige JSON in een van de blokken.\n";
+            // Fout afhandelen, maar verder gaan met streamen
+            res.write("Fout: Ongeldige JSON in een van de blokken.\n");
           }
         });
       }
