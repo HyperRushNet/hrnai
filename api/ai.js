@@ -38,6 +38,7 @@ export default async function handler(req, res) {
       // Streaming the response to the client
       let done = false;
       let result = '';
+      let content = '';  // Variable to hold the content from AI response
 
       while (!done) {
         const { value, done: readerDone } = await reader.read();
@@ -61,12 +62,21 @@ export default async function handler(req, res) {
 
             try {
               const parsedData = JSON.parse(jsonStr);
-              // Stream the parsed JSON as raw text to the client
-              res.write(JSON.stringify(parsedData)); // Send as raw JSON
+              // If content is available, append it without extra space or newline
+              if (parsedData.choices && parsedData.choices.length > 0) {
+                const contentText = parsedData.choices[0].delta.content || '';
+                content += contentText; // Directly append content without spaces or newlines
+              }
             } catch (error) {
               console.error('Error processing JSON:', error);
             }
           }
+        }
+
+        // Send the accumulated content in real-time as a single string to the client
+        if (content) {
+          res.write(content);
+          content = '';  // Clear the content buffer after sending it
         }
 
         // End the loop when the external API signals '[DONE]'
