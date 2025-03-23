@@ -37,7 +37,7 @@ export default async function handler(req, res) {
                 }
 
                 // Verstuur de data naar de externe API
-                const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=openai-large', {
+                const externalApiResponse = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody),
@@ -80,12 +80,12 @@ export default async function handler(req, res) {
                 res.end();
             }
 
-            // Als er bestandgegevens zijn, gebruik dan de FileReader om de base64-string te verkrijgen
+            // Als er bestandgegevens zijn, gebruik dan de base64 string
             if (fileData) {
-                // Aangenomen dat de fileData al base64-gecodeerd is, zoals verwacht voor een API-call
+                // Bestand is al base64-gecodeerd
                 await sendFileToServer(fileData, q);
             } else {
-                // Als er geen bestand is, stuur alleen de tekstinstructie
+                // Geen bestand, alleen de system instruction
                 await sendFileToServer(null, q);
             }
             
