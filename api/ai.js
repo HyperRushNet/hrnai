@@ -1,37 +1,43 @@
 const fetch = require('node-fetch'); // Nodig voor het maken van HTTP-verzoeken in Node.js
 
 module.exports = async (req, res) => {
+    console.log("Received request:", req.method);  // Log request method
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method Not Allowed' });
     }
 
     // Zorg ervoor dat we de body goed kunnen verwerken
     const { systemInstruction, fileData } = req.body;
+    console.log("System Instruction:", systemInstruction);  // Log systemInstruction
+    console.log("File Data:", fileData ? "File provided" : "No file");  // Log if file data is provided
 
     if (!systemInstruction && !fileData) {
+        console.error("No valid data provided!");
         return res.status(400).json({ message: "Please provide a question or upload an image." });
     }
 
-    // Verkrijg de datumtekst
-    const dateText = await fetchDateText();
-    const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${systemInstruction}`;
-
-    // Stel het request body in
-    const requestBody = {
-        messages: [
-            { role: "system", content: "Je bent een behulpzame AI-assistent." },
-            { role: "user", content: fullSystemInstruction }
-        ]
-    };
-
-    if (fileData) {
-        requestBody.messages.push({
-            role: "user",
-            content: [{ type: "image_url", image_url: { url: fileData } }],
-        });
-    }
-
     try {
+        console.log("Fetching date text...");
+        const dateText = await fetchDateText();
+        console.log("Fetched date text:", dateText);  // Log the date text received
+        const fullSystemInstruction = `Date info, only use when needed in 24h time: ${dateText}\n\n${systemInstruction}`;
+        console.log("Full system instruction:", fullSystemInstruction);
+
+        const requestBody = {
+            messages: [
+                { role: "system", content: "Je bent een behulpzame AI-assistent." },
+                { role: "user", content: fullSystemInstruction }
+            ]
+        };
+
+        if (fileData) {
+            requestBody.messages.push({
+                role: "user",
+                content: [{ type: "image_url", image_url: { url: fileData } }],
+            });
+        }
+
+        console.log("Sending request to AI API...");
         const response = await fetch('https://text.pollinations.ai/openai?stream=true&model=mistral', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -39,8 +45,9 @@ module.exports = async (req, res) => {
         });
 
         if (!response.ok) {
-            // Fout bij de request naar de AI API
-            return res.status(response.status).json({ message: 'AI API request failed', details: await response.text() });
+            const errorText = await response.text();
+            console.error("Error response from AI API:", errorText);
+            return res.status(response.status).json({ message: 'AI API request failed', details: errorText });
         }
 
         const reader = response.body.getReader();
@@ -67,7 +74,7 @@ module.exports = async (req, res) => {
 
         res.end();
     } catch (error) {
-        console.error('Fout bij het ophalen van de data:', error);
+        console.error('Error during function execution:', error);
         return res.status(500).json({ message: 'Internal Server Error', error: error.message });
     }
 };
