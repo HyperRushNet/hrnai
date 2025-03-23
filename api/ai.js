@@ -96,11 +96,33 @@ export default async function handler(req, res) {
                 .map(line => line.replace(/^data: /, '')) // Verwijder 'data: ' van elke regel
                 .join('\n');
 
-            // Stuur enkel de nieuwe data die niet eerder is verstuurd
-            const newData = cleanedResult.replace(previousResult, ''); // Verwijder de oude data
-            if (newData) {
-                res.write(newData);  // Stuur alleen de nieuwe data naar de client
-                previousResult = cleanedResult; // Sla de huidige data op als de vorige
+            // Zoek de inhoud van de 'content' tag en voeg deze samen zonder spaties
+            const contentData = cleanedResult.split('\n')
+                .filter(line => {
+                    // Zoek naar regels die een 'content' tag bevatten
+                    try {
+                        const parsedLine = JSON.parse(line);
+                        return parsedLine?.choices?.some(choice => choice?.delta?.content);
+                    } catch (e) {
+                        return false;
+                    }
+                })
+                .map(line => {
+                    // Extract de content van de 'content' tag en voeg die samen
+                    try {
+                        const parsedLine = JSON.parse(line);
+                        return parsedLine?.choices?.map(choice => choice?.delta?.content).join('');
+                    } catch (e) {
+                        return '';
+                    }
+                })
+                .join('');
+
+            // Verzend alleen de nieuwe content naar de client
+            const newContent = contentData.replace(previousResult, ''); // Verwijder de oude data
+            if (newContent) {
+                res.write(newContent);  // Stuur alleen de nieuwe data naar de client
+                previousResult = contentData; // Sla de huidige data op als de vorige
             }
 
             // Zorg ervoor dat we stoppen met versturen als we de '[DONE]' string tegenkomen
