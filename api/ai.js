@@ -1,49 +1,66 @@
+// api/fetchData.js
+import axios from 'axios';
+
 export default async function handler(req, res) {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();  // Zorg ervoor dat de headers direct worden verzonden
-
-    try {
-        // Voer de externe API-aanroep uit
-        const response = await fetch('https://text.pollinations.ai/hi,%20maak%20een%20html%20code%20voor%20een%20netflix%20clone?stream=true');
-        
-        // Haal de tekst op uit de response
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let done = false;
-
-        // Start het streamen van de data
-        while (!done) {
-            const { value, done: readerDone } = await reader.read();
-            done = readerDone;
-            const chunk = decoder.decode(value, { stream: true });
-
-            // Splits de data in blokken
-            const dataBlocks = chunk.split('data:').filter(block => block.trim() !== '');
-            dataBlocks.forEach(block => {
-                const jsonData = block.trim();
-                if (jsonData === '[DONE]') {
-                    res.end(); // Beëindig de verbinding wanneer [DONE] wordt ontvangen
-                    return;
-                }
-
-                try {
-                    const parsedBlock = JSON.parse(jsonData);
-                    
-                    // Haal de 'content' van het 'delta' object
-                    const content = parsedBlock.choices.map(choice => choice.delta.content).join("");
-
-                    // Als content niet leeg is, stuur het dan naar de frontend
-                    if (content.trim()) {
-                        res.write(`data: ${content.trim()}\n\n`);
-                    }
-                } catch (error) {
-                    res.write(`data: Fout: Ongeldige JSON in een van de blokken.\n\n`);
-                }
-            });
-        }
-    } catch (error) {
-        res.status(500).json({ error: 'Fout: Er is iets misgegaan bij het ophalen van de gegevens.' });
+  try {
+    // Fetch data from the URL (streaming data)
+    const streamUrl = 'https://text.pollinations.ai/hallo,%20hoe%20gaat%20het?stream=true';
+    
+    // Axios does not natively support streaming, so we use native fetch for stream handling
+    const response = await fetch(streamUrl);
+    
+    // Check if the request is successful
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch data from the API' });
     }
+
+    // Initialize variables to store the response chunks and result
+    let chunks = '';
+    const result = [];
+
+    // Stream the data (handle the chunks)
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
+
+    while (!done) {
+      const { value, done: readerDone } = await reader.read();
+      done = readerDone;
+      const chunk = decoder.decode(value, { stream: true });
+      chunks += chunk;
+
+      // Process each chunk as it comes in
+      try {
+        const data = JSON.parse(chunk); // Parse the chunk data (it's in JSON format)
+
+        // Process the choices (content)
+        if (data.choices && Array.isArray(data.choices)) {
+          data.choices.forEach((choice) => {
+            const content = choice.delta?.content || '';
+            const contentFilter = choice.content_filter_results || {};
+
+            // Skip content if it's filtered (e.g., hate, self-harm, etc.)
+            if (contentFilter.hate?.filtered) return;
+            if (contentFilter.self_harm?.filtered) return;
+            if (contentFilter.sexual?.filtered) return;
+            if (contentFilter.violence?.filtered) return;
+
+            // Add valid content to the result
+            if (content) {
+              result.push(content);
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Error processing chunk:', err);
+      }
+    }
+
+    // Once done streaming, return the processed result
+    res.status(200).json({ processedContent: result.join('') });
+    
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }
