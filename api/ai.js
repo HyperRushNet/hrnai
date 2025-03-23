@@ -75,8 +75,8 @@ export default async function handler(req, res) {
         // Haal de ruwe data op van de externe API
         const rawData = await externalApiResponse.text();
 
-        // Verstuur de ruwe data terug naar de frontend
-        return res.status(200).json({ rawData });
+        // Verstuur de ruwe data direct terug naar de frontend (zonder te wrappen in een object)
+        res.status(200).send(rawData);
 
     } catch (error) {
         console.error("Error fetching IP data:", error);
