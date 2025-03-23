@@ -44,10 +44,32 @@ export default async function handler(req, res) {
         done = readerDone;
         result += decoder.decode(value, { stream: true });
 
-        // Stream the raw content to the client in real-time
-        res.write(result);
+        // Split the response by lines to process them individually
+        const lines = result.split('\n');
+        result = '';  // Clear the result for the next chunk
 
-        // Break the loop when the external API signals '[DONE]'
+        // Process each line in the chunk
+        for (const line of lines) {
+          // Only process lines that start with "data:"
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.substring(6).trim(); // Remove "data: "
+            
+            if (jsonStr === '[DONE]') {
+              // End of stream, ignore this line
+              continue;
+            }
+
+            try {
+              const parsedData = JSON.parse(jsonStr);
+              // Stream the parsed JSON as raw text to the client
+              res.write(JSON.stringify(parsedData)); // Send as raw JSON
+            } catch (error) {
+              console.error('Error processing JSON:', error);
+            }
+          }
+        }
+
+        // End the loop when the external API signals '[DONE]'
         if (result.includes('data: [DONE]')) {
           break;
         }
