@@ -25,7 +25,7 @@ export default async function handler(req, res) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
 
-        // Decodeer de ruwe data en verwerk deze
+        // Decodeer de ruwe data
         const chunk = decoder.decode(value, { stream: true });
 
         // Split de data op basis van 'data:' om meerdere blokken te extraheren
@@ -41,13 +41,17 @@ export default async function handler(req, res) {
           try {
             // Parse de data en voeg de inhoud van delta.content toe aan aiOutput
             const parsedBlock = JSON.parse(jsonData);
-            const content = parsedBlock.choices.map(choice => choice.delta.content).join("");
-            
-            // Zend enkel het content-deel zonder extra objecten
-            res.write(content);
+
+            // Zorg ervoor dat we alleen de inhoud van delta.content gebruiken
+            const content = parsedBlock.choices?.map(choice => choice.delta?.content).join("") || "";
+
+            // Als content is gevonden, zend deze naar de client
+            if (content) {
+              res.write(content);
+            }
           } catch (error) {
-            // Fout afhandelen, maar verder gaan met streamen
-            res.write("Fout: Ongeldige JSON in een van de blokken.\n");
+            // Negeer de fout als de data niet geldig is en ga verder met het streamen van de volgende
+            console.error("Fout bij het parsen van JSON:", error);
           }
         });
       }
@@ -60,6 +64,7 @@ export default async function handler(req, res) {
     res.end();
 
   } catch (error) {
+    console.error("Er is iets misgegaan:", error);
     res.status(500).json({ error: "Er is iets misgegaan bij het ophalen van de gegevens." });
   }
 }
