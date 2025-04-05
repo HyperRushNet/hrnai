@@ -10,25 +10,19 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    // Haal data op van https://text.pollinations.ai
-    const response = await fetch('https://text.pollinations.ai/maak%20een%20html%20code en zeg wat je van google vindt?stream=true');
+    // Ontvang de foto
+    const chunks = [];
+    req.on('data', chunk => {
+      chunks.push(chunk);
+    });
 
-    // Zet de response headers
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.status(200);
+    req.on('end', () => {
+      const buffer = Buffer.concat(chunks);
+      const base64Image = buffer.toString('base64'); // Converteer naar base64
 
-    // Maak een stream om de response door te sturen
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let done, value;
-
-    while (!done) {
-      // Lees de stream data
-      ({ done, value } = await reader.read());
-      res.write(decoder.decode(value, { stream: true }));  // Stream de data naar de client
-    }
-
-    res.end(); // Eindig de response als de stream klaar is
+      // Je kunt de base64-string terugsturen naar de frontend
+      res.status(200).json({ image: `data:image/jpeg;base64,${base64Image}` });
+    });
 
   } else {
     res.status(405).json({ error: 'Alleen POST toegestaan' });
