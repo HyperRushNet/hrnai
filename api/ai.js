@@ -3,7 +3,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Preflight request
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -51,7 +50,10 @@ export default async function handler(req, res) {
       const decoder = new TextDecoder();
       let done = false;
 
-      // Verwerk de streaming response van de AI en stuur alleen de nieuwe stukken
+      // Zorg dat headers voor streaming correct zijn
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Transfer-Encoding', 'chunked');
+
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
@@ -63,7 +65,7 @@ export default async function handler(req, res) {
           if (line.startsWith('data: ')) {
             const jsonStr = line.slice(6).trim();
             if (jsonStr === '[DONE]') {
-              res.end(); // sluit de stream af
+              res.end();
               return;
             }
 
@@ -71,7 +73,7 @@ export default async function handler(req, res) {
               const parsed = JSON.parse(jsonStr);
               parsed.choices.forEach((choice) => {
                 if (choice.delta?.content) {
-                  res.write(choice.delta.content); // stuur enkel de nieuwe content
+                  res.write(choice.delta.content); // Stuur exact wat nieuw is
                 }
               });
             } catch (err) {
@@ -81,7 +83,7 @@ export default async function handler(req, res) {
         }
       }
 
-      res.end(); // safety fallback, mocht [DONE] niet binnenkomen
+      res.end(); // fallback
     } catch (error) {
       console.error('Fout bij het ophalen van de data:', error);
       res.status(500).json({ error: 'Fout bij communicatie met de AI.' });
