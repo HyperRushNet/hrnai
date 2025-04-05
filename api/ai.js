@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     // Haal data op van https://text.pollinations.ai
-    const response = await fetch('https://text.pollinations.ai/maak%20een%20html%20code?stream=true');
+    const response = await fetch('https://text.pollinations.ai/maak%20een%20html%20code en zeg wat je van google vindt?stream=true');
 
     // Zet de response headers
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
