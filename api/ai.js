@@ -55,21 +55,23 @@ export default async function handler(req, res) {
       let done = false;
       let result = '';
 
-      // Streaming response verwerken
+      // Verzamel de response van de AI en stuur deze door naar de frontend
       while (!done) {
         const { value, done: readerDone } = await reader.read();
         done = readerDone;
         result += decoder.decode(value, { stream: true });
 
-        // Verwerk de ontvangen data
-        processData(result);
+        // Verwerk de ontvangen data en stuur deze naar de frontend
+        const aiOutput = processData(result);
+        res.write(aiOutput); // Verzend de data naar de frontend in realtime
 
         if (result.includes('data: [DONE]')) {
           break;
         }
       }
 
-      res.status(200).json({ message: 'Request succesvol verwerkt.' });
+      res.end(); // Sluit de response af wanneer de AI-output klaar is
+
     } catch (error) {
       console.error('Fout bij het ophalen van de data:', error);
       res.status(500).json({ error: 'Fout bij communicatie met de AI.' });
@@ -111,7 +113,5 @@ function processData(data) {
     }
   });
 
-  // De verwerkte AI-output naar de frontend sturen
-  console.log('Geproduceerde inhoud:', content);
   return content;
 }
