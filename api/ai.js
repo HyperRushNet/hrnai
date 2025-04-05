@@ -3,6 +3,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
+  // CORS headers toevoegen om alle oorsprongen toe te staan
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Sta elke domein toe om toegang te krijgen
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS'); // Toegestane methoden
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // Toegestane headers
+
   const { systemInstruction, fileData } = req.body;
   const seed = Math.floor(Math.random() * 1000) + 1;
 
