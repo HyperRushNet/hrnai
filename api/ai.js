@@ -111,5 +111,7 @@ function processData(data) {
     }
   });
 
-  console.log('Geproduceerde inhoud:', content); // Kan bijvoorbeeld naar de frontend gestuurd worden
+  // De verwerkte AI-output naar de frontend sturen
+  console.log('Geproduceerde inhoud:', content);
+  return content;
 }
