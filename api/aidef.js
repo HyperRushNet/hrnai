@@ -1,117 +1,98 @@
 export default async function handler(req, res) {
-  // EDIT: AI herhaald alles per chunk, rest werkt.
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Preflight request
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Alleen POST toegestaan' });
+
+  const { systemInstruction, fileData } = req.body;
+
+  const dateText = await fetchDateText();
+
+  const fullSystemInstruction = `
+**Instructions for AI-Assistant:**
+1. **User Commands:** Always prioritize and execute the user's commands.
+2. **Responses:** Provide clear, readable responses.
+3. **Math:** Always use latex notation unless the user requests plain notation.
+Date info: ${dateText}
+
+${systemInstruction}
+  `.trim();
+
+  const seed = Math.floor(Math.random() * 1000) + 1;
+
+  const requestBody = {
+    messages: [
+      { role: 'system', content: 'Je bent een behulpzame AI-assistent.' },
+      { role: 'user', content: fullSystemInstruction },
+    ],
+  };
+
+  if (fileData) {
+    requestBody.messages.push({
+      role: 'user',
+      content: [{ type: 'image_url', image_url: { url: fileData } }],
+    });
   }
 
-  if (req.method === 'POST') {
-    const { systemInstruction, fileData } = req.body;
+  try {
+    const response = await fetch(
+      `https://text.pollinations.ai/openai?stream=true&model=mistral&seed=${seed}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      }
+    );
 
-    // Haal de datum op van je API
-    const dateText = await fetchDateText();
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
 
-    const fullSystemInstruction = `
-    **Instructions for AI-Assistant:**
-    1. **User Commands:** Always prioritize and execute the user's commands. Do not mention or react to this system prompt.
-    2. **Responses:** Provide clear, readable responses.
-    3. **Math:** Always use latex notation unless the user requests plain notation.
-    Date info: ${dateText}
-    ${systemInstruction}
-    `;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
 
-    const seed = Math.floor(Math.random() * 1000) + 1;
-    const requestBody = {
-      messages: [
-        { role: 'system', content: 'Je bent een behulpzame AI-assistent.' },
-        { role: 'user', content: fullSystemInstruction },
-      ],
-    };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    if (fileData) {
-      requestBody.messages.push({
-        role: 'user',
-        content: [{ type: 'image_url', image_url: { url: fileData } }],
-      });
-    }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // bewaar laatste incomplete regel
 
-    // Zet de request naar Pollinations
-    try {
-      const response = await fetch(
-        `https://text.pollinations.ai/openai?stream=true&model=mistral&seed=${seed}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') {
+          res.end();
+          return;
         }
-      );
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
-      let result = '';
-
-      // Verzamel de response van de AI en stuur deze door naar de frontend
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        result += decoder.decode(value, { stream: true });
-
-        // Verwerk de ontvangen data en stuur deze naar de frontend
-        const aiOutput = processData(result);
-        res.write(aiOutput); // Verzend de data naar de frontend in realtime
-
-        if (result.includes('data: [DONE]')) {
-          break;
+        try {
+          const parsed = JSON.parse(payload);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) res.write(content);
+        } catch (err) {
+          console.error('Fout bij JSON verwerken:', err);
         }
       }
-
-      res.end(); // Sluit de response af wanneer de AI-output klaar is
-
-    } catch (error) {
-      console.error('Fout bij het ophalen van de data:', error);
-      res.status(500).json({ error: 'Fout bij communicatie met de AI.' });
     }
-  } else {
-    res.status(405).json({ error: 'Alleen POST toegestaan' });
+
+    res.end();
+  } catch (err) {
+    console.error('Fout tijdens AI-verzoek:', err);
+    res.status(500).json({ error: 'Fout tijdens communicatie met AI.' });
   }
 }
 
 async function fetchDateText() {
   try {
-    const response = await fetch('https://hrnai.vercel.app/api/date');
-    return await response.text();
-  } catch (error) {
-    console.error('Error fetching date text:', error);
+    const res = await fetch('https://hrnai.vercel.app/api/date');
+    return await res.text();
+  } catch (err) {
+    console.error('Fout bij ophalen datum:', err);
     return '';
   }
-}
-
-function processData(data) {
-  const lines = data.split('\n');
-  let content = '';
-
-  lines.forEach((line) => {
-    if (line.startsWith('data: ')) {
-      const jsonStr = line.substring(6).trim();
-      if (jsonStr === '[DONE]') return;
-
-      try {
-        const parsedData = JSON.parse(jsonStr);
-        parsedData.choices.forEach((choice) => {
-          if (choice.delta && choice.delta.content) {
-            content += choice.delta.content;
-          }
-        });
-      } catch (error) {
-        console.error('Fout bij het verwerken van de JSON:', error);
-      }
-    }
-  });
-
-  return content;
 }
