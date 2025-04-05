@@ -6,10 +6,13 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Alleen POST toegestaan' });
 
-  const { systemInstruction, fileData } = req.body;
-
+  const { systemInstruction } = req.body;
+  const fileData = req.body.fileData;  // Bestandsdata als base64 of FormData
+  
+  // Datum ophalen van de API
   const dateText = await fetchDateText();
 
+  // Instructies en datum combineren
   const fullSystemInstruction = `
 **Instructions for AI-Assistant:**
 1. **User Commands:** Always prioritize and execute the user's commands.
@@ -18,10 +21,9 @@ export default async function handler(req, res) {
 Date info: ${dateText}
 
 ${systemInstruction}
-  `.trim();
+`.trim();
 
   const seed = Math.floor(Math.random() * 1000) + 1;
-
   const requestBody = {
     messages: [
       { role: 'system', content: 'Je bent een behulpzame AI-assistent.' },
@@ -59,7 +61,7 @@ ${systemInstruction}
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop(); // bewaar laatste incomplete regel
+      buffer = lines.pop();
 
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
