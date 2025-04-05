@@ -21,7 +21,7 @@ export default function handler(req, res) {
           if (index < chunks.length) {
             controller.enqueue(new TextEncoder().encode(chunks[index]));  // Verzend data
             index++;
-            setTimeout(push, 500);  // Simuleer vertraging
+            setTimeout(push, 250);  // Simuleer vertraging
           } else {
             controller.close();  // Sluit stream als alle chunks zijn verzonden
           }
