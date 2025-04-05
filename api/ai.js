@@ -10,20 +10,28 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    // Ontvang de foto
-    const chunks = [];
-    req.on('data', chunk => {
-      chunks.push(chunk);
-    });
+    // Parse JSON request body
+    const { file, fullSystemInstruction } = req.body;
 
-    req.on('end', () => {
-      const buffer = Buffer.concat(chunks);
-      const base64Image = buffer.toString('base64'); // Converteer naar base64
+    if (file) {
+      // Hier ontvang je een base64-gecodeerde afbeelding
+      const base64Image = file.split(',')[1]; // Verwijder de data-URL prefix (bijvoorbeeld "data:image/png;base64,")
+      
+      // Dit is waar je de afbeelding kunt verwerken (bijvoorbeeld opslaan of doorsturen)
+      console.log('Ontvangen afbeelding:', base64Image); 
 
-      // Je kunt de base64-string terugsturen naar de frontend
-      res.status(200).json({ image: `data:image/jpeg;base64,${base64Image}` });
-    });
+      // Als je de afbeelding ergens naar toe wilt sturen, gebruik dan bijvoorbeeld:
+      // await sendFileToServer(base64Image, fullSystemInstruction);
 
+      // Als voorbeeld sturen we de base64 afbeelding terug als antwoord
+      return res.status(200).json({
+        message: 'Afbeelding ontvangen',
+        fileData: base64Image,
+      });
+    } else {
+      // Als er geen bestand is, geef dan een foutmelding
+      return res.status(400).json({ error: 'Geen bestand ontvangen' });
+    }
   } else {
     res.status(405).json({ error: 'Alleen POST toegestaan' });
   }
