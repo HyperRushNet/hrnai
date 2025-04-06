@@ -11,8 +11,7 @@ export default async function handler(req, res) {
   try {
     let fileBase64 = null;
     if (fileData) {
-      // Zet het bestand om naar Base64 in de backend
-      fileBase64 = fileData; // Hier wordt fileData direct gebruikt als base64 string
+      fileBase64 = fileData;
     }
 
     const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
@@ -78,14 +77,15 @@ ${systemInstruction}
 
     const responseBody = await response.json();  // Directe respons (geen stream)
 
-    // Stuur het resultaat terug naar de frontend
-    if (responseBody.choices?.[0]?.message?.content) {
+    // Controleer of er een geldige AI-respons is en stuur deze naar de frontend
+    if (responseBody && responseBody.choices?.[0]?.message?.content) {
       res.status(200).json({ response: responseBody.choices[0].message.content });
     } else {
+      console.error('Fout bij het ontvangen van een geldig antwoord:', responseBody);
       res.status(500).json({ error: 'Geen geldig antwoord van de AI ontvangen.' });
     }
   } catch (err) {
     console.error('Fout tijdens verwerking:', err);
-    res.status(500).json({ error: 'Er ging iets mis tijdens het ophalen van datum/tijd of AI-antwoord.' });
+    res.status(500).json({ error: `Er ging iets mis: ${err.message}` });
   }
 }
