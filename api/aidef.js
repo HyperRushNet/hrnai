@@ -8,6 +8,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  // CORS headers instellen
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -25,7 +26,7 @@ export default async function handler(req, res) {
     const { systemInstruction } = fields;
     const file = files.fileData && files.fileData[0];
 
-    // Als er geen bestand is, geef een foutmelding
+    // Als er geen bestand of instructie is, geef een foutmelding
     if (!file && !systemInstruction) {
       return res.status(400).json({ error: 'Geef een bestand of instructie.' });
     }
@@ -64,14 +65,14 @@ export default async function handler(req, res) {
 
       // Combineer met instructies
       const fullSystemInstruction = `
-  **Instructions for AI-Assistant:**
-  1. **User Commands:** Always prioritize and execute the user's commands.
-  2. **Responses:** Provide clear, readable responses.
-  3. **Math:** Always use latex notation unless the user requests plain notation and always use this format $$ E = mc^2 $$ for outline and $ E = mc^2 $ for inline.
-  Date info: ${dateText}
+        **Instructions for AI-Assistant:**
+        1. **User Commands:** Always prioritize and execute the user's commands.
+        2. **Responses:** Provide clear, readable responses.
+        3. **Math:** Always use latex notation unless the user requests plain notation and always use this format $$ E = mc^2 $$ for outline and $ E = mc^2 $ for inline.
+        Date info: ${dateText}
 
-  ${systemInstruction}
-  `.trim();
+        ${systemInstruction}
+      `.trim();
 
       const seed = Math.floor(Math.random() * 1000) + 1;
       const requestBody = {
@@ -87,7 +88,7 @@ export default async function handler(req, res) {
         const base64File = fileBuffer.toString('base64');
         requestBody.messages.push({
           role: 'user',
-          content: [{ type: 'image_url', image_url: { url: base64File } }],
+          content: [{ type: 'image_url', image_url: { url: `data:image/png;base64,${base64File}` } }],
         });
       }
 
@@ -108,6 +109,7 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('Transfer-Encoding', 'chunked');
 
+      // Lees de stream en update de UI live
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
