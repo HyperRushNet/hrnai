@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 **Instructions for AI-Assistant:**
 1. **User Commands:** Always prioritize and execute the user's commands.
 2. **Responses:** Provide clear, readable responses.
-3. **Math:** Always use latex notation unless the user requests plain notation.
+3. **Math:** Always use latex notation unless the user requests plain notation and always use this format $$ E = mc^2 $$ for outline and $ E = mc^2 $ for inline.
 Date info: ${dateText}
 
 ${systemInstruction}
