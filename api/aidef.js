@@ -10,17 +10,14 @@ export default async function handler(req, res) {
 
   try {
     let fileBase64 = null;
-
-    // Controleer of fileData is ontvangen en converteer het bestand naar base64
     if (fileData) {
-      fileBase64 = await convertFileToBase64(fileData);
+      // Zet het bestand om naar Base64 in de backend
+      fileBase64 = fileData; // Hier wordt fileData direct gebruikt als base64 string
     }
 
-    // IP achterhalen
     const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
     const userIp = forwardedIp || "8.8.8.8"; // Fallback IP (Google DNS)
 
-    // Locatiegegevens ophalen obv IP
     const locationResponse = await fetch(`http://ip-api.com/json/${userIp}?fields=66846719`);
     const locationData = await locationResponse.json();
 
@@ -30,7 +27,6 @@ export default async function handler(req, res) {
 
     const { timezone } = locationData;
 
-    // Datum en tijd op basis van tijdzone
     const date = new Date();
     const options = {
       timeZone: timezone,
@@ -46,7 +42,6 @@ export default async function handler(req, res) {
     const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
     const dateText = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}, Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}, Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
 
-    // Combineer met instructies
     const fullSystemInstruction = `
 **Instructions for AI-Assistant:**
 1. **User Commands:** Always prioritize and execute the user's commands.
@@ -72,9 +67,8 @@ ${systemInstruction}
       });
     }
 
-    // Verstuur naar de AI-backend
     const response = await fetch(
-      `https://text.pollinations.ai/openai?stream=true&model=mistral&seed=${seed}`,
+      `https://text.pollinations.ai/openai?stream=false&model=mistral&seed=${seed}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,54 +76,16 @@ ${systemInstruction}
       }
     );
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
+    const responseBody = await response.json();  // Directe respons (geen stream)
 
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Transfer-Encoding', 'chunked');
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-
-        const payload = line.slice(6).trim();
-        if (payload === '[DONE]') {
-          res.end();
-          return;
-        }
-
-        try {
-          const parsed = JSON.parse(payload);
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) res.write(content);
-        } catch (err) {
-          console.error('Fout bij JSON verwerken:', err);
-        }
-      }
+    // Stuur het resultaat terug naar de frontend
+    if (responseBody.choices?.[0]?.message?.content) {
+      res.status(200).json({ response: responseBody.choices[0].message.content });
+    } else {
+      res.status(500).json({ error: 'Geen geldig antwoord van de AI ontvangen.' });
     }
-
-    res.end();
   } catch (err) {
     console.error('Fout tijdens verwerking:', err);
     res.status(500).json({ error: 'Er ging iets mis tijdens het ophalen van datum/tijd of AI-antwoord.' });
   }
-}
-
-// Functie om bestand naar base64 te converteren zonder externe libraries
-async function convertFileToBase64(fileData) {
-  const base64 = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result.split(',')[1]); // Verwijder de 'data:image/png;base64,' prefix
-    reader.onerror = reject;
-    reader.readAsDataURL(fileData);
-  });
-  return base64;
 }
