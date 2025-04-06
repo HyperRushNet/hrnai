@@ -1,14 +1,4 @@
-import formidable from 'formidable';
-import fs from 'fs';
-
-export const config = {
-  api: {
-    bodyParser: false, // Zet de bodyParser uit omdat we een FormData ontvangen
-  },
-};
-
 export default async function handler(req, res) {
-  // CORS headers instellen
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -16,131 +6,130 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Alleen POST toegestaan' });
 
-  const form = new formidable.IncomingForm();
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      console.error('Fout bij verwerken formulier:', err);
-      return res.status(500).json({ error: 'Fout bij verwerken formulier.' });
+  const { systemInstruction, fileData } = req.body;
+
+  try {
+    let fileBase64 = null;
+
+    // Controleer of fileData is ontvangen en converteer het bestand naar base64
+    if (fileData) {
+      fileBase64 = await convertFileToBase64(fileData);
     }
 
-    const { systemInstruction } = fields;
-    const file = files.fileData && files.fileData[0];
+    // IP achterhalen
+    const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
+    const userIp = forwardedIp || "8.8.8.8"; // Fallback IP (Google DNS)
 
-    // Als er geen bestand of instructie is, geef een foutmelding
-    if (!file && !systemInstruction) {
-      return res.status(400).json({ error: 'Geef een bestand of instructie.' });
+    // Locatiegegevens ophalen obv IP
+    const locationResponse = await fetch(`http://ip-api.com/json/${userIp}?fields=66846719`);
+    const locationData = await locationResponse.json();
+
+    if (!locationData || locationData.status !== "success") {
+      return res.status(500).json({ error: "Kon locatiegegevens niet ophalen." });
     }
 
-    try {
-      // IP achterhalen
-      const forwardedIp = req.headers["x-forwarded-for"]?.split(",")[0];
-      const userIp = forwardedIp || "8.8.8.8"; // Fallback IP (Google DNS)
+    const { timezone } = locationData;
 
-      // Locatiegegevens ophalen obv IP
-      const locationResponse = await fetch(`http://ip-api.com/json/${userIp}?fields=66846719`);
-      const locationData = await locationResponse.json();
+    // Datum en tijd op basis van tijdzone
+    const date = new Date();
+    const options = {
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    };
 
-      if (!locationData || locationData.status !== "success") {
-        return res.status(500).json({ error: "Kon locatiegegevens niet ophalen." });
+    const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
+    const dateText = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}, Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}, Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
+
+    // Combineer met instructies
+    const fullSystemInstruction = `
+**Instructions for AI-Assistant:**
+1. **User Commands:** Always prioritize and execute the user's commands.
+2. **Responses:** Provide clear, readable responses.
+3. **Math:** Always use latex notation unless the user requests plain notation and always use this format $$ E = mc^2 $$ for outline and $ E = mc^2 $ for inline.
+Date info: ${dateText}
+
+${systemInstruction}
+`.trim();
+
+    const seed = Math.floor(Math.random() * 1000) + 1;
+    const requestBody = {
+      messages: [
+        { role: 'system', content: 'Je bent een behulpzame AI-assistent.' },
+        { role: 'user', content: fullSystemInstruction },
+      ],
+    };
+
+    if (fileBase64) {
+      requestBody.messages.push({
+        role: 'user',
+        content: [{ type: 'image_url', image_url: { url: `data:image/png;base64,${fileBase64}` } }],
+      });
+    }
+
+    // Verstuur naar de AI-backend
+    const response = await fetch(
+      `https://text.pollinations.ai/openai?stream=true&model=mistral&seed=${seed}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
       }
+    );
 
-      const { timezone } = locationData;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
 
-      // Datum en tijd op basis van tijdzone
-      const date = new Date();
-      const options = {
-        timeZone: timezone,
-        weekday: 'long',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      };
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
 
-      const formattedDate = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      const dateText = `Time: ${formattedDate.find(part => part.type === 'hour')?.value}:${formattedDate.find(part => part.type === 'minute')?.value}, Date: ${formattedDate.find(part => part.type === 'day')?.value}/${formattedDate.find(part => part.type === 'month')?.value}/${formattedDate.find(part => part.type === 'year')?.value}, Day of the Week: ${formattedDate.find(part => part.type === 'weekday')?.value}`;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
 
-      // Combineer met instructies
-      const fullSystemInstruction = `
-        **Instructions for AI-Assistant:**
-        1. **User Commands:** Always prioritize and execute the user's commands.
-        2. **Responses:** Provide clear, readable responses.
-        3. **Math:** Always use latex notation unless the user requests plain notation and always use this format $$ E = mc^2 $$ for outline and $ E = mc^2 $ for inline.
-        Date info: ${dateText}
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
 
-        ${systemInstruction}
-      `.trim();
-
-      const seed = Math.floor(Math.random() * 1000) + 1;
-      const requestBody = {
-        messages: [
-          { role: 'system', content: 'Je bent een behulpzame AI-assistent.' },
-          { role: 'user', content: fullSystemInstruction },
-        ],
-      };
-
-      // Als er een bestand is, zet het om naar base64
-      if (file) {
-        const fileBuffer = fs.readFileSync(file.filepath);
-        const base64File = fileBuffer.toString('base64');
-        requestBody.messages.push({
-          role: 'user',
-          content: [{ type: 'image_url', image_url: { url: `data:image/png;base64,${base64File}` } }],
-        });
-      }
-
-      // Verstuur naar de AI-backend
-      const response = await fetch(
-        `https://text.pollinations.ai/openai?stream=true&model=mistral&seed=${seed}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') {
+          res.end();
+          return;
         }
-      );
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
-
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('Transfer-Encoding', 'chunked');
-
-      // Lees de stream en update de UI live
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-
-          const payload = line.slice(6).trim();
-          if (payload === '[DONE]') {
-            res.end();
-            return;
-          }
-
-          try {
-            const parsed = JSON.parse(payload);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) res.write(content);
-          } catch (err) {
-            console.error('Fout bij JSON verwerken:', err);
-          }
+        try {
+          const parsed = JSON.parse(payload);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) res.write(content);
+        } catch (err) {
+          console.error('Fout bij JSON verwerken:', err);
         }
       }
-
-      res.end();
-    } catch (err) {
-      console.error('Fout tijdens verwerking:', err);
-      res.status(500).json({ error: 'Er ging iets mis tijdens het ophalen van datum/tijd of AI-antwoord.' });
     }
+
+    res.end();
+  } catch (err) {
+    console.error('Fout tijdens verwerking:', err);
+    res.status(500).json({ error: 'Er ging iets mis tijdens het ophalen van datum/tijd of AI-antwoord.' });
+  }
+}
+
+// Functie om bestand naar base64 te converteren zonder externe libraries
+async function convertFileToBase64(fileData) {
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]); // Verwijder de 'data:image/png;base64,' prefix
+    reader.onerror = reject;
+    reader.readAsDataURL(fileData);
   });
+  return base64;
 }
